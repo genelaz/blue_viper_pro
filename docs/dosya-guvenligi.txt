@@ -1,0 +1,21 @@
+Blue Viper Pro — Kim neyi görebilir?
+
+1) Kodu alan kişi (arkadaşınız)
+   - Sadece size verdiğiniz APK’yı kurar ve size verdiğiniz 12 haneli kodu girer.
+   - Sizin PC’nizdeki klasörü, activation_codes_PRIVATE.txt veya projeyi ASLA görmez.
+   - Paylaşmayın: kaynak kod, JSON katalog, KV seed, şifreleme anahtarları, düz kod listesi.
+
+2) Sizin bilgisayarınız
+   - Windows’ta “kimse göremesin” tamamen Windows ile olur: güçlü oturum şifresi, başkasına PC/hesap vermemek.
+   - İsteğe bağlı: BitLocker (disk şifreleme), hassas klasörü EFS ile şifreleme, VeraCrypt birim.
+   - Kod listesini şifreli tutmak için: proje kökünde
+     set BVP_VAULT_PASS=... (en az 10 karakter)
+     dart run tool/private_vault.dart seal
+     Bu işlem activation_codes_PRIVATE.sealed üretir; düz .txt’yi silip yedekleyebilirsiniz.
+     Açmak için: aynı parola ile "unseal" (Worker/KV için düz listeyi geçici üretir).
+
+3) Git / internet
+   - activation_codes_PRIVATE.txt ve .sealed, activation_kv_seed.json .gitignore ile repoya gitmemeli.
+   - Repoyu herkese açacaksanız bu dosyaları asla commit etmeyin.
+
+Özet: Arkadaşa sadece APK + tek kullanımlık (telefona kilitli) kod verin; PC dosyaları fiziksel ve hesap erişimi ile sizde kalır.

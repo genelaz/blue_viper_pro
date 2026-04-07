@@ -1,0 +1,12 @@
+name = "blue-viper-activation"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+# wrangler kv namespace create ACTIVATION_KV
+# Sonra aşağıdaki id'yi doldurun:
+[[kv_namespaces]]
+binding = "ACTIVATION_KV"
+id = "BURAYA_KV_NAMESPACE_ID"
+
+# wrangler secret put ACTIVATION_SALT
+# Öneri: kendi salt değerinizi girin ve Flutter worker ile aynı yapın (dart-define).

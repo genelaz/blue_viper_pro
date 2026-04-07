@@ -1,0 +1,78 @@
+Blue Viper Pro — Önerilen model listesi (referans)
+==================================================
+Bu dosya, uygulama kataloğunu tamamlamak ve saha/testte hangi silah–dürbün–mühimmat
+kombinasyonlarının mantıklı olduğunu görmek için hazırlanmıştır. Tüm Vo ve BC
+değerleri nominal / yaygın literatüre yakın örneklerdir; kesin atış için üretici
+veya kendi kronograf / radar ölçümünüzle doğrulama şarttır.
+
+Kaynak veri: assets/catalog/turkey_nato.json (birleşik katalog ile birleşir).
+
+
+1) Türkiye (TR) — silah önerileri
+----------------------------------
+Katalog id          | Model / açıklama                           | Kalibre    | Rol
+--------------------+--------------------------------------------+------------+------------------
+tr_knt76            | KNT-76                                     | 7.62x51    | keskin nişancı
+tr_jmk_bora         | JMK BORA-12                                | 12.7x99    | keskin nişancı
+tr_kn12             | KN-12                                      | 8.59x69    | keskin nişancı
+tr_ksr50            | KSR-50                                     | 12.7x99    | keskin nişancı
+tr_mke_csr          | MKE CSR-308                                | 7.62x51    | keskin nişancı
+tr_jng90            | JNG-90 (MKE 7,62 mm cıvata KN platformu)   | 7.62x51    | keskin nişancı
+tr_mpt76            | MPT-76                                     | 7.62x51    | piyade
+tr_mpt55            | MPT-55                                     | 5.56x45    | piyade
+tr_sar15t           | SAR-15T                                    | 5.56x45    | karabina
+tr_mpt76_carbine    | MPT-76 karabina / kısa namlu (nominal sınıf)| 7.62x51    | karabina
+tr_hk33             | HK33 sınıfı (sabit dipçik, envanter)       | 5.56x45    | piyade
+tr_g3a7             | G3A7 / G3 ailesi türevleri                 | 7.62x51    | muharebe tüfeği
+tr_jp8              | Kanas / muvazzaf 7,62 mm platform türevleri| 7.62x51    | piyade
+
+
+2) NATO / ABD — platform boşluklarını kapatan örnekler
+------------------------------------------------------
+Katalog id             | Model                           | Kalibre      | Rol
+-----------------------+---------------------------------+--------------+------------------
+nato_cz_bren2          | CZ BREN 2                       | 5.56x45      | piyade
+nato_sig_mcx           | Sig Sauer MCX                   | 5.56x45      | piyade
+nato_r700_police       | Remington 700 (polis / KN mod.) | .308 Win     | keskin nişancı
+nato_tikka_t3x_tac     | Tikka T3x TAC A1                | .308 Win     | keskin nişancı
+nato_sig_cross         | Sig Sauer Cross                 | .308 Win     | keskin nişancı
+nato_desert_tech_srs   | Desert Tech SRS (.338 LM örnek) | .338 LM      | keskin nişancı
+
+Not: AWM, AX, M24, SR-25, SCAR, HK417, Barrett vb. zaten katalogda mevcut.
+
+
+3) Dürbün — tıklama birimi hızlı seçim
+--------------------------------------
+• Mil-mil taktik (0,1 mil): tr_scope_525x56_mil, tr_3e_keskin_31250_mil,
+  bund_zeiss_v8, vortex_pst_gen2_mil, leupold_mk5_mil, atacr_fc_dimil
+• Geniş tüp MIL (34 mm, nominal): tr_mil_tup_34_gen
+• MOA (1/4 tipik): swarovski_z5i_moa, bund_docter_basic
+• Yakın mesafe / refleks (nominal 1 MOA düzeltme): tr_red_dot_moa
+• Sabit BDC / prismatik: bund_acog_ta31, bund_elcan_dr
+
+
+4) Mühimmat — kalibre başlıca eşleştirme
+---------------------------------------
+5.56x45 piyade     → bund_556_m855, bund_556_mk262, imi_556_m855
+7.62x51 genel      → mke_762_m80, bund_508_nereli, bund_762_m118lr
+7.62x51 KN / maç   → black_hills_175, mke_762_m118 (BC’yi kılavuza göre girin)
+.308 Win ticari    → winchester_match_168, sb_308_168_hpbt, rws_308_168_target
+6.5 CM             → berger_65_140_factory, 65cm_140_eldm (katalogdaki diğer 6.5 CM)
+6.5 PRC (yeni blok)| hornady_65prc_143 — uzun menzil av / maç sınıfı nominal
+.338 LM            → lapua_338_250_scenar, mke_859_ball
+12.7x99            → mke_127_m33, bund_127_bmg
+
+
+5) Balistik ön ayarlar
+----------------------
+lib/core/catalog/weapon_ballistic_presets.dart içinde yeni tr_*/nato_* id’leri
+için Vo + BC + varsayılan mühimmat / dürbün tanımlandı. listede olmayan bir silah
+seçilirse aynı kalibre için caliberFallbackPresets devreye girer (6.5 PRC için
+isterseniz buraya satır ekleyin).
+
+
+6) Yasal / veri uyarısı
+-----------------------
+Fabrika tablolarını (Lapua, Hornady, vb.) uygulamaya birebir kopyalamayın;
+ticari kısıtlara ve kendi docs/balistik-veri-notu.txt kurallarına uyun.
+Nominal sayılar eğitim ve hızlı tahmin içindir.

@@ -1,0 +1,6 @@
+Balistik veri ve ticari uygulamalar (Lapua, Streiklok / Streelok, vb.)
+
+- Bu projedeki G1 motoru ve katalog değerleri, genel açık mühendislik yaklaşımlarına (nokta-kütle, G1 sürüklenme, ICAO yoğunluk düzeltmesi) dayanır.
+- Lapua Mobile, Streelok Pro vb. uygulamaların iç tabloları, grafikleri ve özel katsayıları telif / lisanslı ticari içeriktir; kaynak kodları veya veri dökümü olmadan bu uygulamalarla "taban tabana birleştirme" yapılamaz.
+- İzinli genişletme yolları: üretici veri sayfalarından yayınlanan kamuya açık balistik (BC, Vo) tabloları, kendi saha kronograf ölçümleriniz, JBM / Litz kaynaklı açık formülasyonlar (telif koşullarına uyarak).
+- Katalogda "nominal" ve "saha doğrulaması" notları bu yüzdendir.

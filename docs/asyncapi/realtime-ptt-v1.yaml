@@ -1,0 +1,31 @@
+asyncapi: 2.6.0
+id: https://blue-viper.local/asyncapi/realtime-ptt-v1
+info:
+  title: Blue Viper Realtime PTT (WebSocket)
+  version: 1.0.0
+  description: |
+    Push-to-talk and session sync over a single WebSocket.
+    Normative JSON Schema for each text frame:
+    ../schemas/realtime/v1/ptt-wire-v1.schema.json
+    Narrative: ../realtime-websocket-json-schema.md
+defaultContentType: application/json
+servers:
+  production:
+    url: wss://api.example.com/realtime/v1/ws
+    protocol: wss
+    description: TLS WebSocket; auth via Sec-WebSocket-Protocol or `?token=` per gateway policy.
+channels:
+  realtime:
+    description: Bidirectional session-scoped messages (one JSON object per frame).
+    publish:
+      summary: Client → server commands (join, PTT, moderation, snapshot request).
+      message:
+        schemaFormat: application/vnd.aai.asyncapi+json;version=2.6.0
+        payload:
+          $ref: ../schemas/realtime/v1/ptt-wire-v1.schema.json
+    subscribe:
+      summary: Server → client fanout (state, ACKs, errors, peer events).
+      message:
+        schemaFormat: application/vnd.aai.asyncapi+json;version=2.6.0
+        payload:
+          $ref: ../schemas/realtime/v1/ptt-wire-v1.schema.json

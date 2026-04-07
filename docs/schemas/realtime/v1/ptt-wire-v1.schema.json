@@ -1,0 +1,243 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://blue-viper.local/schemas/realtime/v1/ptt-wire-v1.schema.json",
+  "title": "Blue Viper Realtime PTT — WebSocket JSON frame (v1)",
+  "description": "One JSON object per WebSocket text frame. Type string matches lib/core/realtime/realtime_ptt_events.dart RealtimePttEventType.name.",
+  "oneOf": [
+    { "$ref": "#/$defs/join" },
+    { "$ref": "#/$defs/leave" },
+    { "$ref": "#/$defs/stateSnapshotRequest" },
+    { "$ref": "#/$defs/requestTalk" },
+    { "$ref": "#/$defs/releaseTalk" },
+    { "$ref": "#/$defs/forceNext" },
+    { "$ref": "#/$defs/mute" },
+    { "$ref": "#/$defs/renameMember" },
+    { "$ref": "#/$defs/removeMember" },
+    { "$ref": "#/$defs/stateSnapshot" },
+    { "$ref": "#/$defs/ack" },
+    { "$ref": "#/$defs/error" }
+  ],
+  "$defs": {
+    "isoDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 / ISO-8601 instant, e.g. 2026-04-07T10:00:00.000Z"
+    },
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Room scope; must match JWT/session scope."
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "groupRole": {
+      "type": "string",
+      "enum": ["owner", "admin", "member"]
+    },
+    "memberRecord": {
+      "type": "object",
+      "required": ["userId", "displayName", "role", "muted"],
+      "additionalProperties": false,
+      "properties": {
+        "userId": { "$ref": "#/$defs/userId" },
+        "displayName": { "type": "string", "minLength": 1 },
+        "role": { "$ref": "#/$defs/groupRole" },
+        "muted": { "type": "boolean" }
+      }
+    },
+    "stateSnapshotPayload": {
+      "type": "object",
+      "required": ["members"],
+      "additionalProperties": false,
+      "properties": {
+        "currentSpeakerId": {
+          "oneOf": [{ "$ref": "#/$defs/userId" }, { "type": "null" }]
+        },
+        "queuedUserIds": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/userId" }
+        },
+        "members": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/memberRecord" }
+        }
+      }
+    },
+    "envelopeBase": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Event discriminator; see root oneOf."
+        },
+        "sessionId": { "$ref": "#/$defs/sessionId" },
+        "actorUserId": { "$ref": "#/$defs/userId" },
+        "targetUserId": {
+          "oneOf": [{ "$ref": "#/$defs/userId" }, { "type": "null" }]
+        },
+        "muted": { "type": "boolean" },
+        "seq": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Monotonic per-actor command id for replay/ACK correlation; client assigns for outbound commands."
+        },
+        "refSeq": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "References client seq for ack/error responses."
+        },
+        "code": {
+          "type": "string",
+          "description": "Machine-stable error code when type=error."
+        },
+        "message": {
+          "type": "string",
+          "description": "Human-readable detail; optional for errors."
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "sentAt": { "$ref": "#/$defs/isoDateTime" }
+      },
+      "required": ["sessionId", "type", "actorUserId", "sentAt"]
+    },
+    "join": {
+      "allOf": [
+        { "$ref": "#/$defs/envelopeBase" },
+        {
+          "type": "object",
+          "properties": { "type": { "const": "join" } },
+          "required": ["type"]
+        }
+      ]
+    },
+    "leave": {
+      "allOf": [
+        { "$ref": "#/$defs/envelopeBase" },
+        {
+          "type": "object",
+          "properties": { "type": { "const": "leave" } },
+          "required": ["type"]
+        }
+      ]
+    },
+    "stateSnapshotRequest": {
+      "allOf": [
+        { "$ref": "#/$defs/envelopeBase" },
+        {
+          "type": "object",
+          "properties": { "type": { "const": "stateSnapshotRequest" } },
+          "required": ["type"]
+        }
+      ]
+    },
+    "requestTalk": {
+      "allOf": [
+        { "$ref": "#/$defs/envelopeBase" },
+        {
+          "type": "object",
+          "properties": { "type": { "const": "requestTalk" } },
+          "required": ["type"]
+        }
+      ]
+    },
+    "releaseTalk": {
+      "allOf": [
+        { "$ref": "#/$defs/envelopeBase" },
+        {
+          "type": "object",
+          "properties": { "type": { "const": "releaseTalk" } },
+          "required": ["type"]
+        }
+      ]
+    },
+    "forceNext": {
+      "allOf": [
+        { "$ref": "#/$defs/envelopeBase" },
+        {
+          "type": "object",
+          "properties": { "type": { "const": "forceNext" } },
+          "required": ["type"]
+        }
+      ]
+    },
+    "mute": {
+      "allOf": [
+        { "$ref": "#/$defs/envelopeBase" },
+        {
+          "type": "object",
+          "properties": { "type": { "const": "mute" } },
+          "required": ["type", "targetUserId", "muted"]
+        }
+      ]
+    },
+    "renameMember": {
+      "allOf": [
+        { "$ref": "#/$defs/envelopeBase" },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "renameMember" },
+            "payload": {
+              "type": "object",
+              "required": ["displayName"],
+              "additionalProperties": true,
+              "properties": {
+                "displayName": { "type": "string", "minLength": 1 }
+              }
+            }
+          },
+          "required": ["type", "targetUserId", "payload"]
+        }
+      ]
+    },
+    "removeMember": {
+      "allOf": [
+        { "$ref": "#/$defs/envelopeBase" },
+        {
+          "type": "object",
+          "properties": { "type": { "const": "removeMember" } },
+          "required": ["type", "targetUserId"]
+        }
+      ]
+    },
+    "stateSnapshot": {
+      "allOf": [
+        { "$ref": "#/$defs/envelopeBase" },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "stateSnapshot" },
+            "payload": { "$ref": "#/$defs/stateSnapshotPayload" }
+          },
+          "required": ["type", "payload"]
+        }
+      ]
+    },
+    "ack": {
+      "allOf": [
+        { "$ref": "#/$defs/envelopeBase" },
+        {
+          "type": "object",
+          "properties": { "type": { "const": "ack" } },
+          "required": ["type", "refSeq"]
+        }
+      ]
+    },
+    "error": {
+      "allOf": [
+        { "$ref": "#/$defs/envelopeBase" },
+        {
+          "type": "object",
+          "properties": { "type": { "const": "error" } },
+          "required": ["type", "refSeq", "code"]
+        }
+      ]
+    }
+  }
+}

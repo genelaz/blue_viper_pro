@@ -1,0 +1,82 @@
+================================================================================
+BLUE VIPER PRO — APK PAYLAŞIMI İÇİN VİDEO ÇEKİM REHBERİ (kendi anlatımın)
+================================================================================
+Araç: OBS Studio (ücretsiz) veya Windows tuşu + G → "Yakala" oyun çubuğu
+Süre hedefi: 4–7 dakika
+Ses: Kulaklık mikrofonu veya telefon; gürültülü ortamda çekme.
+
+--------------------------------------------------------------------------------
+BÖLÜM 0 — HAZIRLIK
+--------------------------------------------------------------------------------
+□ Telefonda ekran kaydı: Ayarlar'da "Ekran kaydedici" / Samsung: Quick Panel
+□ PC'de proje açık: C:\src\blue_viper_pro
+□ Hassas bilgi (API anahtarı, dart-define satırı) ekranda görünecekse sonradan bulanıklaştır veya o kısmı kes
+
+--------------------------------------------------------------------------------
+BÖLÜM 1 — PC: APK ÜRETME (2–3 dk)
+--------------------------------------------------------------------------------
+GÖRÜNTÜ: VS Code veya Cursor + Terminal açık, proje kökü görünsün.
+
+KOMUT (kendi kullandığın tam komut neyse onu yaz; ek dart-define varsa dahil et):
+  cd C:\src\blue_viper_pro
+  flutter build apk --release
+
+ANLATIM ÖRNEĞİ (isterken aynen oku veya uyarla):
+  "Merhaba. Blue Viper Pro'yu arkadaşlarıma APK olarak paylaşmak için önce
+   bilgisayarda release APK oluşturuyorum. Proje klasöründeyim, şimdi
+   Flutter build apk release komutunu çalıştırıyorum. İlk seferde birkaç
+   dakika sürebilir."
+
+  [Komut bitsin, "Built" veya başarı çıktısı görünsün]
+
+  "Derleme bitti. APK dosyası şu klasörde:
+   build\app\outputs\flutter-apk\app-release.apk — Windows Gezgini ile
+   bu klasörü açıp dosyayı göstereyim."
+
+GÖRÜNTÜ: Dosya Gezgini'nde app-release.apk seçili, boyut görünsün (ör. 49 MB).
+
+ANLATIM:
+  "Paylaşacağım dosya bu. Kaynak kod veya gizli listeleri göndermiyorum;
+   sadece bu APK ve gerekiyorsa aktivasyon kodu."
+
+--------------------------------------------------------------------------------
+BÖLÜM 2 — PAYLAŞMA (30 sn – 1 dk) — İSTEĞE BAĞLI
+--------------------------------------------------------------------------------
+GÖRÜNTÜ: WhatsApp Web VEYA Google Drive "yükle" (kişisel bilgileri kırp)
+
+ANLATIM:
+  "Arkadaşıma WhatsApp veya Drive ile bu APK'yı gönderiyorum. O da indirip
+   telefonda kuracak."
+
+--------------------------------------------------------------------------------
+BÖLÜM 3 — TELEFON: KURULUM (1–2 dk)
+--------------------------------------------------------------------------------
+GÖRÜNTÜ: Telefon ekran kaydı — İndirilenler / Dosyalar → app-release.apk
+
+ANLATIM:
+  "Telefonda indirdiğim APK'ya dokunuyorum. Android güvenlik uyarısı
+   çıkabilir; uygulamayı hangi uygulama ile açtıysam—Chrome veya Dosyalar—
+   için Ayarlar'dan 'bilinmeyen kaynaklardan yükleme' iznini veriyorum."
+
+  [Kurulum → Aç]
+
+  "Kurulum bitti. Uygulamayı açıyorum; aktivasyon varsa benden aldığı
+   on iki haneli kodu giriyorum."
+
+--------------------------------------------------------------------------------
+KAPANIŞ (15 sn)
+--------------------------------------------------------------------------------
+ANLATIM:
+  "Özet: PC'de flutter build apk --release, sonra app-release.apk dosyasını
+   güvenilir şekilde gönder, telefonda bilinmeyen kaynak izni ile kur.
+   Başka sorunuz olursa yazın."
+
+--------------------------------------------------------------------------------
+KIRPMA / YAYIN
+--------------------------------------------------------------------------------
+□ Başta 2 sn sessizlik, sonda jingle yok — sade kes
+□ Cümle aralarında 1 sn nefes — monoton okuma
+□ Dosya yolu okunaklı; gerekirse yakın zoom
+□ YouTube / Drive "sınırlı" veya "liste dışı" — sadece arkadaşlara link
+
+================================================================================

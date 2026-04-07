@@ -1,0 +1,2777 @@
+{
+  "version": 1,
+  "label": "Türkiye + NATO (genişletilmiş; G1+G7 BC, nominal — saha doğrulaması önerilir)",
+  "weapons": [
+    {
+      "id": "tr_knt76",
+      "name": "KNT-76",
+      "caliber": "7.62x51",
+      "role": "sniper",
+      "region": "TR"
+    },
+    {
+      "id": "tr_jmk_bora",
+      "name": "JMK BORA-12 (BORA)",
+      "caliber": "12.7x99",
+      "role": "sniper",
+      "region": "TR"
+    },
+    {
+      "id": "tr_kn12",
+      "name": "KN-12 (.338 LM / 8.59x69)",
+      "caliber": "8.59x69",
+      "role": "sniper",
+      "region": "TR"
+    },
+    {
+      "id": "tr_ksr50",
+      "name": "KSR-50",
+      "caliber": "12.7x99",
+      "role": "sniper",
+      "region": "TR"
+    },
+    {
+      "id": "tr_mke_csr",
+      "name": "MKE CSR (CSR-308)",
+      "caliber": "7.62x51",
+      "role": "sniper",
+      "region": "TR"
+    },
+    {
+      "id": "tr_mpt76",
+      "name": "MPT-76",
+      "caliber": "7.62x51",
+      "role": "assault",
+      "region": "TR"
+    },
+    {
+      "id": "tr_mpt55",
+      "name": "MPT-55",
+      "caliber": "5.56x45",
+      "role": "assault",
+      "region": "TR"
+    },
+    {
+      "id": "tr_sar15t",
+      "name": "SAR-15T",
+      "caliber": "5.56x45",
+      "role": "carbine",
+      "region": "TR"
+    },
+    {
+      "id": "tr_jp8",
+      "name": "Kanas / muvazzaf platform türevleri (çeşitli 7,62 mm)",
+      "caliber": "7.62x51",
+      "role": "assault",
+      "region": "TR"
+    },
+    {
+      "id": "tr_jng90",
+      "name": "JNG-90 (MKE 7,62 mm cıvata keskin nişancı)",
+      "caliber": "7.62x51",
+      "role": "sniper",
+      "region": "TR"
+    },
+    {
+      "id": "tr_hk33",
+      "name": "HK33 / 5,56 mm sabit dipçik (envanter)",
+      "caliber": "5.56x45",
+      "role": "assault",
+      "region": "TR"
+    },
+    {
+      "id": "tr_g3a7",
+      "name": "G3A7 / G3 ailesi (çeşitli dipçik ve namlu)",
+      "caliber": "7.62x51",
+      "role": "battle_rifle",
+      "region": "TR"
+    },
+    {
+      "id": "tr_mpt76_carbine",
+      "name": "MPT-76 karabina / kısa namlu sınıfı (nominal)",
+      "caliber": "7.62x51",
+      "role": "carbine",
+      "region": "TR"
+    },
+    {
+      "id": "nato_awm",
+      "name": "Accuracy International AWM",
+      "caliber": ".338 LM",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "nato_axmc",
+      "name": "Accuracy International AXMC",
+      "caliber": ".300 WM",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "nato_ax308",
+      "name": "Accuracy International AX308",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "nato_m24",
+      "name": "M24 SWS",
+      "caliber": "7.62x51",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "nato_m40a6",
+      "name": "M40A6",
+      "caliber": "7.62x51",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "nato_mk22",
+      "name": "MK22 ASR (Multi-cal)",
+      "caliber": ".338 LM / 7.62x51",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "nato_m110_sass",
+      "name": "M110 SASS",
+      "caliber": "7.62x51",
+      "role": "dmr",
+      "region": "US"
+    },
+    {
+      "id": "nato_mk11",
+      "name": "Mk 11 Mod 0",
+      "caliber": "7.62x51",
+      "role": "dmr",
+      "region": "US"
+    },
+    {
+      "id": "nato_sr25",
+      "name": "Knight's SR-25",
+      "caliber": "7.62x51",
+      "role": "dmr",
+      "region": "US"
+    },
+    {
+      "id": "nato_mk14",
+      "name": "Mk 14 EBR",
+      "caliber": "7.62x51",
+      "role": "dmr",
+      "region": "US"
+    },
+    {
+      "id": "nato_hk417",
+      "name": "HK417",
+      "caliber": "7.62x51",
+      "role": "dmr",
+      "region": "NATO"
+    },
+    {
+      "id": "nato_g28",
+      "name": "HK G28",
+      "caliber": "7.62x51",
+      "role": "dmr",
+      "region": "NATO"
+    },
+    {
+      "id": "nato_scar_h_ssr",
+      "name": "FN SCAR-H SSR",
+      "caliber": "7.62x51",
+      "role": "dmr",
+      "region": "NATO"
+    },
+    {
+      "id": "nato_l129a1",
+      "name": "L129A1 (Sharpshooter)",
+      "caliber": "7.62x51",
+      "role": "dmr",
+      "region": "NATO"
+    },
+    {
+      "id": "nato_m82",
+      "name": "Barrett M82A1/M107",
+      "caliber": "12.7x99",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "nato_mrad",
+      "name": "Barrett MRAD",
+      "caliber": ".338 LM",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "nato_tac50",
+      "name": "McMillan TAC-50",
+      "caliber": "12.7x99",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_cadex_cdx30",
+      "name": "Cadex Defence CDX-30 (kısa aksiyon; ör. 6,5 CM / .308)",
+      "caliber": "6.5 CM",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_cadex_cdx33",
+      "name": "Cadex Defence CDX-33 / Tremor (.338 Lapua sınıfı)",
+      "caliber": ".338 LM",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_cadex_kraken",
+      "name": "Cadex Defence CDX-MC Kraken (çok kalibr şasi)",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_cadex_cdx40",
+      "name": "Cadex Defence CDX-40 (.408 Chey Tac)",
+      "caliber": ".408 CT",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_cadex_cdx50",
+      "name": "Cadex Defence CDX-50 (12,7×99)",
+      "caliber": "12.7x99",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_ai_at",
+      "name": "Accuracy International AT (.308 Win)",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_ai_aw_l96",
+      "name": "Accuracy International AW / L96 / L118 (7,62×51)",
+      "caliber": "7.62x51",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_sako_trg_m10",
+      "name": "Sako TRG M10 (modüler; .338 LM örnek)",
+      "caliber": ".338 LM",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_sako_trg_a1",
+      "name": "Sako TRG-22 A1 / .308 Win varyantları",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_sako_trg_65cm",
+      "name": "Sako TRG şasi (6,5 Creedmoor)",
+      "caliber": "6.5 CM",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_bergara_b14_hmr",
+      "name": "Bergara B-14 HMR",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_bergara_premier",
+      "name": "Bergara Premier Series (maç / taktik)",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_bergara_hmr_pro",
+      "name": "Bergara HMR Pro (6,5 CM)",
+      "caliber": "6.5 CM",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_christensen_mpr",
+      "name": "Christensen Arms MPR",
+      "caliber": "6.5 CM",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_christensen_elr",
+      "name": "Christensen Arms ELR (.338 LM)",
+      "caliber": ".338 LM",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_steyr_ssg69",
+      "name": "Steyr SSG 69",
+      "caliber": "7.62x51",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_steyr_ssg08",
+      "name": "Steyr SSG 08",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_steyr_ssg_m1",
+      "name": "Steyr SSG M1",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_steyr_hs50",
+      "name": "Steyr HS .50 (12,7 mm anti-materyel)",
+      "caliber": "12.7x99",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_blaser_r93_lrs2",
+      "name": "Blaser R93 LRS 2 / LRS2 (ince namlu)",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_blaser_r8_lr",
+      "name": "Blaser R8 Long Range / Professional Success",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_blaser_tactical2",
+      "name": "Blaser Tactical 2 (.300 Win Mag)",
+      "caliber": ".300 WM",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_sig_ssg3000",
+      "name": "Sig Sauer SSG 3000",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_fn_ballista",
+      "name": "FN Ballista (çok kalibr; .338 LM örnek)",
+      "caliber": ".338 LM",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_pgm_338",
+      "name": "PGM 338 / Ultima Ratio",
+      "caliber": ".338 LM",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_pgm_hecate2",
+      "name": "PGM Hécate II (12,7 mm)",
+      "caliber": "12.7x99",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_pgm_mini_hecate",
+      "name": "PGM Mini-Hécate (.308 Win)",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_desert_tech_hti",
+      "name": "Desert Tech Hard Target Interdiction (HTI)",
+      "caliber": "12.7x99",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_cheytac_m200",
+      "name": "CheyTac M200 Intervention (.408 CT)",
+      "caliber": ".408 CT",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_ruger_rpr_elite",
+      "name": "Ruger Precision Rifle (Elite / magwell varyantları)",
+      "caliber": "6.5 CM",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_howa_hcr",
+      "name": "Howa 1500 HCR (şasi)",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_howa_tspx",
+      "name": "Howa TSPX / cerakote taktik (6,5 CM)",
+      "caliber": "6.5 CM",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_weatherby_mkv",
+      "name": "Weatherby Mark V Accumark / Backcountry TI",
+      "caliber": ".300 WM",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_seekins_havak",
+      "name": "Seekins Precision Havak HIT / Bravo (6,5 CM örnek)",
+      "caliber": "6.5 CM",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_victrix_scorpio",
+      "name": "Victrix Armaments Scorpio T (.338 LM)",
+      "caliber": ".338 LM",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_victrix_minerva",
+      "name": "Victrix Armaments Minerva (.308 Win)",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_sabatti_str",
+      "name": "Sabatti STR / Sport Tactical",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_mauser_m12",
+      "name": "Mauser M12 / M12 Impact (.300 WM)",
+      "caliber": ".300 WM",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_mauser_m18",
+      "name": "Mauser M18 / Arming samandağı türevleri (.308)",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_q_fix",
+      "name": "Q LLC The Fix",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_wilson_super_sniper",
+      "name": "Wilson Combat Super Sniper / Recon Tactical",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_savage_110_elite",
+      "name": "Savage 110 Elite Precision",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_savage_110_ultra",
+      "name": "Savage 110 Ultra Lite / Long Range",
+      "caliber": "6.5 CM",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_dd_delta5",
+      "name": "Daniel Defense Delta 5 / Delta 5 Pro",
+      "caliber": "6.5 CM",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_orsis_t5000",
+      "name": "Orsis T-5000 (.338 LM uzun menzil)",
+      "caliber": ".338 LM",
+      "role": "sniper",
+      "region": "OTHER"
+    },
+    {
+      "id": "sni_surgeon_scalpel",
+      "name": "Surgeon Rifles Scalpel / XL",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_remington_msr",
+      "name": "Remington MSR (Modular Sniper Rifle)",
+      "caliber": ".338 LM",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_tikka_t3x_ctr",
+      "name": "Tikka T3x CTR",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_tikka_t3x_upr",
+      "name": "Tikka T3x UPR",
+      "caliber": "6.5 CM",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_anschutz_1782",
+      "name": "Anschütz 1782 DMR / 1762 taktik",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_springfield_waypoint",
+      "name": "Springfield Armory Waypoint 2020",
+      "caliber": "6.5 CM",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_browning_xbolt",
+      "name": "Browning X-Bolt McMillan / Long Range",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_nosler_m48",
+      "name": "Nosler Model 48 Long Range Carbon",
+      "caliber": ".300 WM",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_cz_600_alpha",
+      "name": "CZ 600 American / Alpha taktik varyant",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_hs_htr",
+      "name": "HS Precision HTR / Pro-Series 2000",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_mk13_mod5",
+      "name": "Mk 13 Mod 5 (Rem 700 tabanlı, .300 WM)",
+      "caliber": ".300 WM",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_m21",
+      "name": "M21 SWS (M14 tabanlı)",
+      "caliber": "7.62x51",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_hk_psg1",
+      "name": "Heckler & Koch PSG1",
+      "caliber": "7.62x51",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_hk_msg90",
+      "name": "Heckler & Koch MSG90",
+      "caliber": "7.62x51",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_sv98",
+      "name": "SV-98 (7,62×51 / .308 ihrac)",
+      "caliber": "7.62x51",
+      "role": "sniper",
+      "region": "OTHER"
+    },
+    {
+      "id": "sni_svch",
+      "name": "SVCh / Chukavin (7,62×54 R)",
+      "caliber": "7.62x54R",
+      "role": "sniper",
+      "region": "OTHER"
+    },
+    {
+      "id": "sni_l42a1",
+      "name": "Lee-Enfield L42A1",
+      "caliber": "7.62x51",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_ai_l115a3",
+      "name": "Accuracy International L115A3 (.338 LM)",
+      "caliber": ".338 LM",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_ai_awm_f_g22",
+      "name": "Accuracy AWM-F / H&K G22 (.300 Win Mag)",
+      "caliber": ".300 WM",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_ai_ax50",
+      "name": "Accuracy International AX50 (12,7 mm)",
+      "caliber": "12.7x99",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_barrett_m95",
+      "name": "Barrett M95 (cıvata 12,7 mm)",
+      "caliber": "12.7x99",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_zastava_m93",
+      "name": "Zastava M93 Black Arrow (12,7 mm)",
+      "caliber": "12.7x99",
+      "role": "sniper",
+      "region": "OTHER"
+    },
+    {
+      "id": "sni_gm6_lynx",
+      "name": "Sero GM6 Lynx (12,7 mm)",
+      "caliber": "12.7x99",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_mosin_m91_30",
+      "name": "Mosin-Nagant M91/30 PU / hedef şasi",
+      "caliber": "7.62x54R",
+      "role": "sniper",
+      "region": "OTHER"
+    },
+    {
+      "id": "sni_svdm",
+      "name": "Dragunov SVDM (modernize)",
+      "caliber": "7.62x54R",
+      "role": "sniper",
+      "region": "OTHER"
+    },
+    {
+      "id": "sni_dragunov_svu",
+      "name": "OTs-03 SVU (7,62×54 R)",
+      "caliber": "7.62x54R",
+      "role": "sniper",
+      "region": "OTHER"
+    },
+    {
+      "id": "sni_frf2",
+      "name": "FR F2 (7,62×51 NATO)",
+      "caliber": "7.62x51",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_ashbury_asw338",
+      "name": "Ashbury ASW338 / modular şasi",
+      "caliber": ".338 LM",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_sako_trg_22",
+      "name": "Sako TRG 22 (.308 Win)",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_sako_trg_42",
+      "name": "Sako TRG 42 (.338 LM)",
+      "caliber": ".338 LM",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_cooper_jackson",
+      "name": "Cooper Firearms Jackson Hunter (uzun menzil)",
+      "caliber": "6.5 CM",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_fierce_edge",
+      "name": "Fierce Firearms Edge / Fury (maç şasi)",
+      "caliber": "6.5 CM",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_marlin_x7vh",
+      "name": "Marlin X7 / Stevens türevi hedef (özelleştirilmiş)",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_truvelo_m98",
+      "name": "Truvelo Armaments CMS / M98 (çok kalibr)",
+      "caliber": ".338 LM",
+      "role": "sniper",
+      "region": "OTHER"
+    },
+    {
+      "id": "sni_arctic_wolf",
+      "name": "Canadian Ranger / ticari Arctic platformlar (ör. uzun menzil .308)",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "sni_macmillan_alphas",
+      "name": "McMillan ALIAS / TAC-series şasi (çeşitli kalibr)",
+      "caliber": ".300 WM",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_defiance_anomaly",
+      "name": "Defiance Machine Deviant / tenon şasi (özel yapım)",
+      "caliber": "6.5 CM",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "sni_galatz",
+      "name": "IMI Galatz (Galil keskin nişancı)",
+      "caliber": "7.62x51",
+      "role": "sniper",
+      "region": "OTHER"
+    },
+    {
+      "id": "inf_m4a1",
+      "name": "Colt M4A1",
+      "caliber": "5.56x45",
+      "role": "carbine",
+      "region": "US"
+    },
+    {
+      "id": "inf_m16a4",
+      "name": "M16A4",
+      "caliber": "5.56x45",
+      "role": "assault",
+      "region": "US"
+    },
+    {
+      "id": "inf_hk416",
+      "name": "HK416",
+      "caliber": "5.56x45",
+      "role": "assault",
+      "region": "NATO"
+    },
+    {
+      "id": "inf_scar_l",
+      "name": "FN SCAR-L",
+      "caliber": "5.56x45",
+      "role": "assault",
+      "region": "NATO"
+    },
+    {
+      "id": "inf_l85a3",
+      "name": "L85A2/A3",
+      "caliber": "5.56x45",
+      "role": "assault",
+      "region": "NATO"
+    },
+    {
+      "id": "inf_c7_c8",
+      "name": "Diemaco/Colt C7/C8",
+      "caliber": "5.56x45",
+      "role": "assault",
+      "region": "NATO"
+    },
+    {
+      "id": "inf_g36",
+      "name": "HK G36",
+      "caliber": "5.56x45",
+      "role": "assault",
+      "region": "NATO"
+    },
+    {
+      "id": "inf_aug",
+      "name": "Steyr AUG",
+      "caliber": "5.56x45",
+      "role": "assault",
+      "region": "NATO"
+    },
+    {
+      "id": "inf_famas",
+      "name": "FAMAS",
+      "caliber": "5.56x45",
+      "role": "assault",
+      "region": "NATO"
+    },
+    {
+      "id": "inf_fal",
+      "name": "FN FAL / L1A1 (çeşitli)",
+      "caliber": "7.62x51",
+      "role": "battle_rifle",
+      "region": "NATO"
+    },
+    {
+      "id": "inf_g3",
+      "name": "HK G3",
+      "caliber": "7.62x51",
+      "role": "battle_rifle",
+      "region": "NATO"
+    },
+    {
+      "id": "inf_scar_h",
+      "name": "FN SCAR-H (assault)",
+      "caliber": "7.62x51",
+      "role": "assault",
+      "region": "NATO"
+    },
+    {
+      "id": "inf_ar10_gen",
+      "name": "AR-10 platform (çeşitli)",
+      "caliber": "7.62x51",
+      "role": "battle_rifle",
+      "region": "NATO"
+    },
+    {
+      "id": "nato_cz_bren2",
+      "name": "CZ BREN 2",
+      "caliber": "5.56x45",
+      "role": "assault",
+      "region": "NATO"
+    },
+    {
+      "id": "nato_sig_mcx",
+      "name": "Sig Sauer MCX",
+      "caliber": "5.56x45",
+      "role": "assault",
+      "region": "NATO"
+    },
+    {
+      "id": "nato_r700_police",
+      "name": "Remington 700 (polis / keskin nişancı mod.)",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "nato_tikka_t3x_tac",
+      "name": "Tikka T3x TAC A1",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "NATO"
+    },
+    {
+      "id": "nato_sig_cross",
+      "name": "Sig Sauer Cross",
+      "caliber": ".308 Win",
+      "role": "sniper",
+      "region": "US"
+    },
+    {
+      "id": "nato_desert_tech_srs",
+      "name": "Desert Tech SRS (.338 LM örnek)",
+      "caliber": ".338 LM",
+      "role": "sniper",
+      "region": "NATO"
+    }
+  ],
+  "scopes": [
+    {
+      "id": "bund_zeiss_v8",
+      "name": "Zeiss Victory V8 (0.1 mil / modül)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "bund_kahles_k624i",
+      "name": "Kahles K624i (0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "bund_steiner_m5xi",
+      "name": "Steiner M5Xi (0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "bund_delta_stryker_hd",
+      "name": "Delta Stryker HD (0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "bund_bushnell_elite",
+      "name": "Bushnell Elite Tactical (0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "bund_primary_plx",
+      "name": "Primary Arms PLx (0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "bund_sig_tango6t",
+      "name": "Sig Sauer TANGO6T (0.2 mil / mod)",
+      "clickUnit": "mil",
+      "clickValue": 0.2
+    },
+    {
+      "id": "bund_elcan_dr",
+      "name": "Elcan SpecterDR (kanonik sabit sapma)",
+      "clickUnit": "moa",
+      "clickValue": 0.5
+    },
+    {
+      "id": "bund_acog_ta31",
+      "name": "Trijicon ACOG TA31 (BDC tabanlı)",
+      "clickUnit": "moa",
+      "clickValue": 0.25
+    },
+    {
+      "id": "bund_eotech_vudu",
+      "name": "EOTech Vudu (0.25 MOA)",
+      "clickUnit": "moa",
+      "clickValue": 0.25
+    },
+    {
+      "id": "bund_minox_zp5",
+      "name": "Minox ZP5 (0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "bund_meopta_optika6",
+      "name": "Meopta Optika6 (0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "bund_tangent_theta",
+      "name": "Tangent Theta (0.05 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.05
+    },
+    {
+      "id": "bund_docter_basic",
+      "name": "Docter Basic (1/4 MOA)",
+      "clickUnit": "moa",
+      "clickValue": 0.25
+    },
+    {
+      "id": "tr_3e_keskin_31250_mil",
+      "name": "3E EOS Keskin 3-12×50 (mil-mil, nominal 0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "tr_3e_avci_mil",
+      "name": "3E EOS AVCI (piyade platformları ile uyumlu seriler; nominal 0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "tr_3e_eos_gen_mil",
+      "name": "3E EOS taktik dürbün (diğer modeller; nominal 0.1 mil — kılavuz)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "tr_scope_312x50_mil",
+      "name": "Silah üstü 3-12×50 (26 mm tüp, tipik TR, 0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "tr_scope_416x50_mil",
+      "name": "Silah üstü 4-16×50 (tipik TR / genel, 0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "tr_scope_624x50_mil",
+      "name": "Silah üstü 6-24×50 (tipik TR / genel, 0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "tr_scope_525x56_mil",
+      "name": "Silah üstü 5-25×56 (34 mm tüp, tipik TR, 0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "tr_scope_525x50_mil",
+      "name": "Silah üstü 5-25×50 (tipik TR, 0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "tr_scope_520x50_mil",
+      "name": "Silah üstü 5-20×50 (genel av/taktik, 0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "tr_mil_tup_34_gen",
+      "name": "Yurt içi / genel 34 mm MIL tüp (tipik 5-25×; nominal 0.1 mil — kılavuz)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "tr_red_dot_moa",
+      "name": "Refleks / red dot (nominal 1 MOA düzeltme — kılavuz)",
+      "clickUnit": "moa",
+      "clickValue": 1.0
+    },
+    {
+      "id": "swarovski_x5i_52556_mil",
+      "name": "Swarovski Optik X5i 5-25×56 P BT (0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "swarovski_z8i_mil",
+      "name": "Swarovski Optik Z8i (taktik modül, 0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "swarovski_z5i_moa",
+      "name": "Swarovski Optik Z5i (1/4 MOA)",
+      "clickUnit": "moa",
+      "clickValue": 0.25
+    },
+    {
+      "id": "swarovski_ds_moa",
+      "name": "Swarovski Optik dS (dijital, 1/4 MOA eşleniği)",
+      "clickUnit": "moa",
+      "clickValue": 0.25
+    },
+    {
+      "id": "burris_xtr3_mil",
+      "name": "Burris XTR III (0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "trijicon_tenmile_mil",
+      "name": "Trijicon Tenmile (0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "trijicon_credo_mil",
+      "name": "Trijicon Credo HX (0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "us_optics_tpal_mil",
+      "name": "US Optics TPAL / B-Series (0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "zero_compromise_zc527_mil",
+      "name": "Zero Compromise Optic ZC527 (0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "sightron_s3_moa",
+      "name": "Sightron SIII (1/4 MOA)",
+      "clickUnit": "moa",
+      "clickValue": 0.25
+    },
+    {
+      "id": "sightron_sv_mil",
+      "name": "Sightron SV (0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "hawke_sidewinder_mil",
+      "name": "Hawke Sidewinder (0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "delta_sentry_mil",
+      "name": "Delta Optical Stryker/Sentry HD (0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "ior_valdada_mil",
+      "name": "IOR Valdada Recon (0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "nightforce_nx8_mil",
+      "name": "Nightforce NX8 (0.2 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.2
+    },
+    {
+      "id": "vortex_pst_gen2_mil",
+      "name": "Vortex PST Gen II (0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "vortex_diamondback_moa",
+      "name": "Vortex Diamondback Tactical (1/4 MOA)",
+      "clickUnit": "moa",
+      "clickValue": 0.25
+    },
+    {
+      "id": "sig_tango4_mil",
+      "name": "Sig Sauer TANGO4 (0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "leupold_mk5_mil",
+      "name": "Leupold Mark 5HD (0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    },
+    {
+      "id": "atacr_fc_dimil",
+      "name": "Nightforce ATACR F1 (0.1 mil)",
+      "clickUnit": "mil",
+      "clickValue": 0.1
+    }
+  ],
+  "ammos": [
+    {
+      "id": "bund_556_m855",
+      "name": "5.56x45 M855 62gr",
+      "caliber": "5.56x45",
+      "variants": [
+        {
+          "id": "b14",
+          "label": "~14\" namlu (carbine)",
+          "barrelInches": 14,
+          "muzzleVelocityMps": 780,
+          "bcG1": 0.304,
+          "bcG7": 0.141
+        },
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 820,
+          "bcG1": 0.304,
+          "bcG7": 0.141
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 885,
+          "bcG1": 0.304,
+          "bcG7": 0.141
+        }
+      ]
+    },
+    {
+      "id": "bund_556_m193",
+      "name": "5.56x45 M193 55gr",
+      "caliber": "5.56x45",
+      "variants": [
+        {
+          "id": "b14",
+          "label": "~14\" namlu",
+          "barrelInches": 14,
+          "muzzleVelocityMps": 820,
+          "bcG1": 0.246,
+          "bcG7": 0.179
+        },
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 870,
+          "bcG1": 0.246,
+          "bcG7": 0.179
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 930,
+          "bcG1": 0.246,
+          "bcG7": 0.179
+        }
+      ]
+    },
+    {
+      "id": "bund_556_mk262",
+      "name": "5.56x45 Mk262 77gr OTM",
+      "caliber": "5.56x45",
+      "variants": [
+        {
+          "id": "b14",
+          "label": "~14\" namlu",
+          "barrelInches": 14,
+          "muzzleVelocityMps": 725,
+          "bcG1": 0.372,
+          "bcG7": 0.2
+        },
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 765,
+          "bcG1": 0.372,
+          "bcG7": 0.2
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 820,
+          "bcG1": 0.372,
+          "bcG7": 0.2
+        }
+      ]
+    },
+    {
+      "id": "bund_508_nereli",
+      "name": "7.62x51 M80 Ball (nominal)",
+      "caliber": "7.62x51",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 745,
+          "bcG1": 0.393,
+          "bcG7": 0.195
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 800,
+          "bcG1": 0.393,
+          "bcG7": 0.195
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 838,
+          "bcG1": 0.393,
+          "bcG7": 0.195
+        }
+      ]
+    },
+    {
+      "id": "bund_762_m118lr",
+      "name": "7.62x51 M118LR 175gr",
+      "caliber": "7.62x51",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 720,
+          "bcG1": 0.496,
+          "bcG7": 0.268
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 775,
+          "bcG1": 0.496,
+          "bcG7": 0.268
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 810,
+          "bcG1": 0.496,
+          "bcG7": 0.268
+        }
+      ]
+    },
+    {
+      "id": "bund_300nm_230",
+      "name": ".300 NM 230gr (nominal)",
+      "caliber": ".300 NM",
+      "variants": [
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 835,
+          "bcG1": 0.63,
+          "bcG7": 0.355
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 880,
+          "bcG1": 0.63,
+          "bcG7": 0.355
+        },
+        {
+          "id": "b26",
+          "label": "~26\" namlu",
+          "barrelInches": 26,
+          "muzzleVelocityMps": 900,
+          "bcG1": 0.63,
+          "bcG7": 0.355
+        }
+      ]
+    },
+    {
+      "id": "bund_127_bmg",
+      "name": "12.7x99 M33 Ball (nominal)",
+      "caliber": "12.7x99",
+      "variants": [
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 780,
+          "bcG1": 0.62,
+          "bcG7": 0.23
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 820,
+          "bcG1": 0.62,
+          "bcG7": 0.23
+        },
+        {
+          "id": "b29",
+          "label": "~29\" namlu",
+          "barrelInches": 29,
+          "muzzleVelocityMps": 860,
+          "bcG1": 0.62,
+          "bcG7": 0.23
+        }
+      ]
+    },
+    {
+      "id": "bund_tr_mpt_standard",
+      "name": "MPT platform 7.62x51 (örnek yük)",
+      "caliber": "7.62x51",
+      "variants": [
+        {
+          "id": "b14",
+          "label": "~14\" (kısa)",
+          "barrelInches": 14,
+          "muzzleVelocityMps": 730,
+          "bcG1": 0.42,
+          "bcG7": 0.21
+        },
+        {
+          "id": "b18",
+          "label": "~18\" (orta)",
+          "barrelInches": 18,
+          "muzzleVelocityMps": 785,
+          "bcG1": 0.42,
+          "bcG7": 0.21
+        },
+        {
+          "id": "b24",
+          "label": "~24\" (uzun)",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 835,
+          "bcG1": 0.42,
+          "bcG7": 0.21
+        }
+      ]
+    },
+    {
+      "id": "mke_762_m80",
+      "name": "MKE 7.62 mm×51 Ball (M80) — Vo 23,7 m: 838±9,1 m/s; BC 0,45 (G1) [MKE USA]",
+      "caliber": "7.62x51",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu (tahmini Vo)",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 805,
+          "bcG1": 0.45,
+          "bcG7": 0.206
+        },
+        {
+          "id": "b22",
+          "label": "~22\" referans (yakın Vo 838)",
+          "barrelInches": 22,
+          "muzzleVelocityMps": 838,
+          "bcG1": 0.45,
+          "bcG7": 0.206
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu (tahmini Vo)",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 858,
+          "bcG1": 0.45,
+          "bcG7": 0.206
+        }
+      ]
+    },
+    {
+      "id": "mke_762_m118",
+      "name": "MKE 7.62 mm×51 M118 — Vo 23,7 m: 784±9 m/s; ~11,4 g [MKE USA]; nominal G1≈0,49 / G7 tahmini (doğrulayın)",
+      "caliber": "7.62x51",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu (tahmini Vo)",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 752,
+          "bcG1": 0.49,
+          "bcG7": 0.255
+        },
+        {
+          "id": "b22",
+          "label": "~22\" referans (yakın Vo 784)",
+          "barrelInches": 22,
+          "muzzleVelocityMps": 784,
+          "bcG1": 0.49,
+          "bcG7": 0.255
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu (tahmini Vo)",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 805,
+          "bcG1": 0.49,
+          "bcG7": 0.255
+        }
+      ]
+    },
+    {
+      "id": "mke_762_m62",
+      "name": "MKE 7.62 mm×51 İzli (M62) — Vo 23,7 m: 838±9,1 m/s; BC 0,47 (G1) [mke.gov.tr]",
+      "caliber": "7.62x51",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu (tahmini Vo)",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 805,
+          "bcG1": 0.47,
+          "bcG7": 0.21
+        },
+        {
+          "id": "b22",
+          "label": "~22\" referans (yakın Vo 838)",
+          "barrelInches": 22,
+          "muzzleVelocityMps": 838,
+          "bcG1": 0.47,
+          "bcG7": 0.21
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu (tahmini Vo)",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 858,
+          "bcG1": 0.47,
+          "bcG7": 0.21
+        }
+      ]
+    },
+    {
+      "id": "mke_762_subsonic",
+      "name": "MKE 7.62 mm×51 Subsonic — Vo 23,7 m: 305 m/s; 13 g mermi [MKE USA]",
+      "caliber": "7.62x51",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" (çok hafif fark)",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 302,
+          "bcG1": 0.52,
+          "bcG7": 0.315
+        },
+        {
+          "id": "b20",
+          "label": "~20\" referans",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 305,
+          "bcG1": 0.52,
+          "bcG7": 0.315
+        },
+        {
+          "id": "b24",
+          "label": "~24\" (çok hafif fark)",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 308,
+          "bcG1": 0.52,
+          "bcG7": 0.315
+        }
+      ]
+    },
+    {
+      "id": "mke_859_ball",
+      "name": "MKE 8,59 mm×70 (338 Lapua Magnum) Ball — Vo 890±10 m/s; 16,4 g [MKE USA]",
+      "caliber": "8.59x70",
+      "variants": [
+        {
+          "id": "b20",
+          "label": "~20\" namlu (tahmini Vo)",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 868,
+          "bcG1": 0.675,
+          "bcG7": 0.34
+        },
+        {
+          "id": "b24",
+          "label": "~24\" referans (yakın Vo 890)",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 890,
+          "bcG1": 0.675,
+          "bcG7": 0.34
+        },
+        {
+          "id": "b26",
+          "label": "~26\" namlu (tahmini Vo)",
+          "barrelInches": 26,
+          "muzzleVelocityMps": 905,
+          "bcG1": 0.675,
+          "bcG7": 0.34
+        }
+      ]
+    },
+    {
+      "id": "mke_859_solid",
+      "name": "MKE 8,59 mm×70 (338 Lapua Magnum) Solid Metal Projectile — Vo 890±10 m/s; 15,6 g pirinç mermi [MKE USA]",
+      "caliber": "8.59x70",
+      "variants": [
+        {
+          "id": "b20",
+          "label": "~20\" namlu (tahmini Vo)",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 868,
+          "bcG1": 0.58,
+          "bcG7": 0.292
+        },
+        {
+          "id": "b24",
+          "label": "~24\" referans (yakın Vo 890)",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 890,
+          "bcG1": 0.58,
+          "bcG7": 0.292
+        },
+        {
+          "id": "b26",
+          "label": "~26\" namlu (tahmini Vo)",
+          "barrelInches": 26,
+          "muzzleVelocityMps": 905,
+          "bcG1": 0.58,
+          "bcG7": 0.292
+        }
+      ]
+    },
+    {
+      "id": "mke_127_m33",
+      "name": "MKE 12,7 mm×99 (.50 cal) M33 — Vo 23,7 m: 887±9,2 m/s [MKE USA]",
+      "caliber": "12.7x99",
+      "variants": [
+        {
+          "id": "b20",
+          "label": "~20\" namlu (tahmini Vo)",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 855,
+          "bcG1": 0.62,
+          "bcG7": 0.23
+        },
+        {
+          "id": "b24",
+          "label": "~24\" referans (yakın Vo 887)",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 887,
+          "bcG1": 0.62,
+          "bcG7": 0.23
+        },
+        {
+          "id": "b29",
+          "label": "~29\" namlu (tahmini Vo)",
+          "barrelInches": 29,
+          "muzzleVelocityMps": 910,
+          "bcG1": 0.62,
+          "bcG7": 0.23
+        }
+      ]
+    },
+    {
+      "id": "mke_127_m8",
+      "name": "MKE 12,7 mm×99 (.50 cal) M8 (AP) — Vo 23,7 m: 887±9,2 m/s [MKE USA]",
+      "caliber": "12.7x99",
+      "variants": [
+        {
+          "id": "b20",
+          "label": "~20\" namlu (tahmini Vo)",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 855,
+          "bcG1": 0.58,
+          "bcG7": 0.218
+        },
+        {
+          "id": "b24",
+          "label": "~24\" referans (yakın Vo 887)",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 887,
+          "bcG1": 0.58,
+          "bcG7": 0.218
+        },
+        {
+          "id": "b29",
+          "label": "~29\" namlu (tahmini Vo)",
+          "barrelInches": 29,
+          "muzzleVelocityMps": 910,
+          "bcG1": 0.58,
+          "bcG7": 0.218
+        }
+      ]
+    },
+    {
+      "id": "mke_127_m17",
+      "name": "MKE 12,7 mm×99 (.50 cal) M17 (İzli) — Vo 23,7 m: 872±12 m/s [MKE USA]",
+      "caliber": "12.7x99",
+      "variants": [
+        {
+          "id": "b20",
+          "label": "~20\" namlu (tahmini Vo)",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 842,
+          "bcG1": 0.58,
+          "bcG7": 0.218
+        },
+        {
+          "id": "b24",
+          "label": "~24\" referans (yakın Vo 872)",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 872,
+          "bcG1": 0.58,
+          "bcG7": 0.218
+        },
+        {
+          "id": "b29",
+          "label": "~29\" namlu (tahmini Vo)",
+          "barrelInches": 29,
+          "muzzleVelocityMps": 895,
+          "bcG1": 0.58,
+          "bcG7": 0.218
+        }
+      ]
+    },
+    {
+      "id": "mke_127_m2ap",
+      "name": "MKE 12,7 mm×99 M2 AP — Vo 23,7 m: 887 m/s [MKE USA]",
+      "caliber": "12.7x99",
+      "variants": [
+        {
+          "id": "b20",
+          "label": "~20\" namlu (tahmini Vo)",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 855,
+          "bcG1": 0.55,
+          "bcG7": 0.205
+        },
+        {
+          "id": "b24",
+          "label": "~24\" referans (yakın Vo 887)",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 887,
+          "bcG1": 0.55,
+          "bcG7": 0.205
+        },
+        {
+          "id": "b29",
+          "label": "~29\" namlu (tahmini Vo)",
+          "barrelInches": 29,
+          "muzzleVelocityMps": 910,
+          "bcG1": 0.55,
+          "bcG7": 0.205
+        }
+      ]
+    },
+    {
+      "id": "mke_127_solid_sniper",
+      "name": "MKE 12,7 mm×99 Solid Sniper — Vo 24 m: 845±9,2 m/s; 51,76 g pirinç mermi [MKE USA]",
+      "caliber": "12.7x99",
+      "variants": [
+        {
+          "id": "b20",
+          "label": "~20\" namlu (tahmini Vo)",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 818,
+          "bcG1": 0.95,
+          "bcG7": 0.36
+        },
+        {
+          "id": "b24",
+          "label": "~24\" referans (yakın Vo 845)",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 845,
+          "bcG1": 0.95,
+          "bcG7": 0.36
+        },
+        {
+          "id": "b29",
+          "label": "~29\" namlu (tahmini Vo)",
+          "barrelInches": 29,
+          "muzzleVelocityMps": 865,
+          "bcG1": 0.95,
+          "bcG7": 0.36
+        }
+      ]
+    },
+    {
+      "id": "lapua_308_155_scenar",
+      "name": "Lapua .308 Win 155gr Scenar",
+      "caliber": ".308 Win",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 765,
+          "bcG1": 0.506,
+          "bcG7": 0.236
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 810,
+          "bcG1": 0.506,
+          "bcG7": 0.236
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 845,
+          "bcG1": 0.506,
+          "bcG7": 0.236
+        }
+      ]
+    },
+    {
+      "id": "lapua_308_167_scenarl",
+      "name": "Lapua .308 Win 167gr Scenar-L",
+      "caliber": ".308 Win",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 745,
+          "bcG1": 0.552,
+          "bcG7": 0.265
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 790,
+          "bcG1": 0.552,
+          "bcG7": 0.265
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 825,
+          "bcG1": 0.552,
+          "bcG7": 0.265
+        }
+      ]
+    },
+    {
+      "id": "lapua_308_175_scenar",
+      "name": "Lapua .308 Win 175gr Scenar",
+      "caliber": ".308 Win",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 732,
+          "bcG1": 0.515,
+          "bcG7": 0.262
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 778,
+          "bcG1": 0.515,
+          "bcG7": 0.262
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 815,
+          "bcG1": 0.515,
+          "bcG7": 0.262
+        }
+      ]
+    },
+    {
+      "id": "lapua_65_123_scenar",
+      "name": "Lapua 6.5 CM 123gr Scenar",
+      "caliber": "6.5 CM",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 795,
+          "bcG1": 0.547,
+          "bcG7": 0.259
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 835,
+          "bcG1": 0.547,
+          "bcG7": 0.259
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 870,
+          "bcG1": 0.547,
+          "bcG7": 0.259
+        }
+      ]
+    },
+    {
+      "id": "lapua_65_136_scenar",
+      "name": "Lapua 6.5 CM 136gr Scenar",
+      "caliber": "6.5 CM",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 770,
+          "bcG1": 0.615,
+          "bcG7": 0.29
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 812,
+          "bcG1": 0.615,
+          "bcG7": 0.29
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 845,
+          "bcG1": 0.615,
+          "bcG7": 0.29
+        }
+      ]
+    },
+    {
+      "id": "ppu_762_m80",
+      "name": "Prvi Partizan 7.62x51 M80 Ball 145gr",
+      "caliber": "7.62x51",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 738,
+          "bcG1": 0.393,
+          "bcG7": 0.197
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 785,
+          "bcG1": 0.393,
+          "bcG7": 0.197
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 820,
+          "bcG1": 0.393,
+          "bcG7": 0.197
+        }
+      ]
+    },
+    {
+      "id": "ppu_762_match_175",
+      "name": "Prvi Partizan 7.62x51 175gr Match HPBT",
+      "caliber": "7.62x51",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 720,
+          "bcG1": 0.488,
+          "bcG7": 0.254
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 765,
+          "bcG1": 0.488,
+          "bcG7": 0.254
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 800,
+          "bcG1": 0.488,
+          "bcG7": 0.254
+        }
+      ]
+    },
+    {
+      "id": "federal_gmm_175",
+      "name": "Federal Gold Medal 7.62x51 175gr SMK",
+      "caliber": "7.62x51",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 725,
+          "bcG1": 0.505,
+          "bcG7": 0.263
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 770,
+          "bcG1": 0.505,
+          "bcG7": 0.263
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 805,
+          "bcG1": 0.505,
+          "bcG7": 0.263
+        }
+      ]
+    },
+    {
+      "id": "lapua_300wm_155_scenar",
+      "name": "Lapua .300 Win Mag 155gr Scenar",
+      "caliber": ".300 WM",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 885,
+          "bcG1": 0.487,
+          "bcG7": 0.253
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 930,
+          "bcG1": 0.487,
+          "bcG7": 0.253
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 965,
+          "bcG1": 0.487,
+          "bcG7": 0.253
+        }
+      ]
+    },
+    {
+      "id": "lapua_338_250_scenar",
+      "name": "Lapua .338 LM 250gr Scenar",
+      "caliber": ".338 LM",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 830,
+          "bcG1": 0.675,
+          "bcG7": 0.328
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 870,
+          "bcG1": 0.675,
+          "bcG7": 0.328
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 905,
+          "bcG1": 0.675,
+          "bcG7": 0.328
+        }
+      ]
+    },
+    {
+      "id": "lapua_338_300_scenar",
+      "name": "Lapua .338 LM 300gr Scenar OTM",
+      "caliber": ".338 LM",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 795,
+          "bcG1": 0.825,
+          "bcG7": 0.3
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 835,
+          "bcG1": 0.825,
+          "bcG7": 0.3
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 870,
+          "bcG1": 0.825,
+          "bcG7": 0.3
+        }
+      ]
+    },
+    {
+      "id": "lapua_762_fmj",
+      "name": "Lapua 7.62x51 146gr FMJ (Ball tipi)",
+      "caliber": "7.62x51",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 750,
+          "bcG1": 0.393,
+          "bcG7": 0.197
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 800,
+          "bcG1": 0.393,
+          "bcG7": 0.197
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 838,
+          "bcG1": 0.393,
+          "bcG7": 0.197
+        }
+      ]
+    },
+    {
+      "id": "ppu_308_168_hpbt",
+      "name": "Prvi Partizan .308 Win 168gr Match HPBT",
+      "caliber": ".308 Win",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 748,
+          "bcG1": 0.45,
+          "bcG7": 0.234
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 792,
+          "bcG1": 0.45,
+          "bcG7": 0.234
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 828,
+          "bcG1": 0.45,
+          "bcG7": 0.234
+        }
+      ]
+    },
+    {
+      "id": "ppu_338_250_hpbt",
+      "name": "Prvi Partizan .338 LM 250gr HPBT",
+      "caliber": ".338 LM",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 825,
+          "bcG1": 0.64,
+          "bcG7": 0.307
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 865,
+          "bcG1": 0.64,
+          "bcG7": 0.307
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 895,
+          "bcG1": 0.64,
+          "bcG7": 0.307
+        }
+      ]
+    },
+    {
+      "id": "ppu_65_140_hpbt",
+      "name": "Prvi Partizan 6.5 CM 140gr HPBT",
+      "caliber": "6.5 CM",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 778,
+          "bcG1": 0.56,
+          "bcG7": 0.28
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 818,
+          "bcG1": 0.56,
+          "bcG7": 0.28
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 850,
+          "bcG1": 0.56,
+          "bcG7": 0.28
+        }
+      ]
+    },
+    {
+      "id": "ppu_556_m193",
+      "name": "Prvi Partizan 5.56x45 M193 55gr",
+      "caliber": "5.56x45",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 860,
+          "bcG1": 0.246,
+          "bcG7": 0.143
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 905,
+          "bcG1": 0.246,
+          "bcG7": 0.143
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 938,
+          "bcG1": 0.246,
+          "bcG7": 0.143
+        }
+      ]
+    },
+    {
+      "id": "ppu_556_m855",
+      "name": "Prvi Partizan 5.56x45 SS109/M855 62gr",
+      "caliber": "5.56x45",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 810,
+          "bcG1": 0.304,
+          "bcG7": 0.17
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 855,
+          "bcG1": 0.304,
+          "bcG7": 0.17
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 888,
+          "bcG1": 0.304,
+          "bcG7": 0.17
+        }
+      ]
+    },
+    {
+      "id": "ppu_762x39_123",
+      "name": "Prvi Partizan 7.62x39 123gr FMJ",
+      "caliber": "7.62x39",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 668,
+          "bcG1": 0.3,
+          "bcG7": 0.17
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 698,
+          "bcG1": 0.3,
+          "bcG7": 0.17
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 722,
+          "bcG1": 0.3,
+          "bcG7": 0.17
+        }
+      ]
+    },
+    {
+      "id": "hornady_308_178_eldx",
+      "name": "Hornady .308 Win 178gr ELD-X",
+      "caliber": ".308 Win",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 728,
+          "bcG1": 0.552,
+          "bcG7": 0.28
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 775,
+          "bcG1": 0.552,
+          "bcG7": 0.28
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 810,
+          "bcG1": 0.552,
+          "bcG7": 0.28
+        }
+      ]
+    },
+    {
+      "id": "hornady_300wm_200_eldx",
+      "name": "Hornady .300 Win Mag 200gr ELD-X",
+      "caliber": ".300 WM",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 845,
+          "bcG1": 0.625,
+          "bcG7": 0.3
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 890,
+          "bcG1": 0.625,
+          "bcG7": 0.3
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 920,
+          "bcG1": 0.625,
+          "bcG7": 0.3
+        }
+      ]
+    },
+    {
+      "id": "federal_gmm_168",
+      "name": "Federal Gold Medal .308 168gr SMK",
+      "caliber": ".308 Win",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 748,
+          "bcG1": 0.462,
+          "bcG7": 0.24
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 792,
+          "bcG1": 0.462,
+          "bcG7": 0.24
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 828,
+          "bcG1": 0.462,
+          "bcG7": 0.24
+        }
+      ]
+    },
+    {
+      "id": "nosler_308_168_cc",
+      "name": "Nosler .308 Win 168gr Custom Competition",
+      "caliber": ".308 Win",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 742,
+          "bcG1": 0.47,
+          "bcG7": 0.244
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 788,
+          "bcG1": 0.47,
+          "bcG7": 0.244
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 822,
+          "bcG1": 0.47,
+          "bcG7": 0.244
+        }
+      ]
+    },
+    {
+      "id": "norma_308_168_golden",
+      "name": "Norma .308 Win 168gr Golden Target",
+      "caliber": ".308 Win",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 750,
+          "bcG1": 0.475,
+          "bcG7": 0.247
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 795,
+          "bcG1": 0.475,
+          "bcG7": 0.247
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 830,
+          "bcG1": 0.475,
+          "bcG7": 0.247
+        }
+      ]
+    },
+    {
+      "id": "sb_762_147_fmj",
+      "name": "Sellier & Bellot 7.62x51 147gr FMJ",
+      "caliber": "7.62x51",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 735,
+          "bcG1": 0.398,
+          "bcG7": 0.199
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 780,
+          "bcG1": 0.398,
+          "bcG7": 0.199
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 815,
+          "bcG1": 0.398,
+          "bcG7": 0.199
+        }
+      ]
+    },
+    {
+      "id": "sb_308_168_hpbt",
+      "name": "Sellier & Bellot .308 Win 168gr HPBT",
+      "caliber": ".308 Win",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 738,
+          "bcG1": 0.455,
+          "bcG7": 0.237
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 785,
+          "bcG1": 0.455,
+          "bcG7": 0.237
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 820,
+          "bcG1": 0.455,
+          "bcG7": 0.237
+        }
+      ]
+    },
+    {
+      "id": "rws_308_168_target",
+      "name": "RWS .308 Win 168gr Target Line",
+      "caliber": ".308 Win",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 745,
+          "bcG1": 0.465,
+          "bcG7": 0.242
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 790,
+          "bcG1": 0.465,
+          "bcG7": 0.242
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 825,
+          "bcG1": 0.465,
+          "bcG7": 0.242
+        }
+      ]
+    },
+    {
+      "id": "winchester_match_168",
+      "name": "Winchester Match .308 168gr BTHP",
+      "caliber": ".308 Win",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 740,
+          "bcG1": 0.458,
+          "bcG7": 0.238
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 785,
+          "bcG1": 0.458,
+          "bcG7": 0.238
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 818,
+          "bcG1": 0.458,
+          "bcG7": 0.238
+        }
+      ]
+    },
+    {
+      "id": "black_hills_175",
+      "name": "Black Hills 7.62x51 / .308 175gr Match",
+      "caliber": "7.62x51",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 725,
+          "bcG1": 0.498,
+          "bcG7": 0.259
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 770,
+          "bcG1": 0.498,
+          "bcG7": 0.259
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 808,
+          "bcG1": 0.498,
+          "bcG7": 0.259
+        }
+      ]
+    },
+    {
+      "id": "imi_556_m855",
+      "name": "IMI 5.56x45 M855 62gr (IWI)",
+      "caliber": "5.56x45",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 805,
+          "bcG1": 0.304,
+          "bcG7": 0.17
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 850,
+          "bcG1": 0.304,
+          "bcG7": 0.17
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 882,
+          "bcG1": 0.304,
+          "bcG7": 0.17
+        }
+      ]
+    },
+    {
+      "id": "berger_65_140_factory",
+      "name": "Berger 6.5 CM 140gr Hybrid Target (ticari)",
+      "caliber": "6.5 CM",
+      "variants": [
+        {
+          "id": "b16",
+          "label": "~16\" namlu",
+          "barrelInches": 16,
+          "muzzleVelocityMps": 780,
+          "bcG1": 0.618,
+          "bcG7": 0.297
+        },
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 820,
+          "bcG1": 0.618,
+          "bcG7": 0.297
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 855,
+          "bcG1": 0.618,
+          "bcG7": 0.297
+        }
+      ]
+    },
+    {
+      "id": "hornady_65prc_143",
+      "name": "Hornady 6.5 PRC 143gr sınıfı (ELD-X / Match — nominal fabrika)",
+      "caliber": "6.5 PRC",
+      "variants": [
+        {
+          "id": "b20",
+          "label": "~20\" namlu",
+          "barrelInches": 20,
+          "muzzleVelocityMps": 855,
+          "bcG1": 0.625,
+          "bcG7": 0.3
+        },
+        {
+          "id": "b24",
+          "label": "~24\" namlu",
+          "barrelInches": 24,
+          "muzzleVelocityMps": 895,
+          "bcG1": 0.625,
+          "bcG7": 0.3
+        },
+        {
+          "id": "b26",
+          "label": "~26\" namlu",
+          "barrelInches": 26,
+          "muzzleVelocityMps": 915,
+          "bcG1": 0.625,
+          "bcG7": 0.3
+        }
+      ]
+    },
+    {
+      "id": "nominal_408ct_419",
+      "name": ".408 Chey Tac 419gr sınıfı (nominal — saha doğrulaması)",
+      "caliber": ".408 CT",
+      "variants": [
+        {
+          "id": "b29",
+          "label": "~29\" namlu",
+          "barrelInches": 29,
+          "muzzleVelocityMps": 915,
+          "bcG1": 0.87,
+          "bcG7": 0.313
+        },
+        {
+          "id": "b32",
+          "label": "~32\" namlu",
+          "barrelInches": 32,
+          "muzzleVelocityMps": 935,
+          "bcG1": 0.87,
+          "bcG7": 0.313
+        }
+      ]
+    }
+  ]
+}
