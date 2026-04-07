@@ -111,7 +111,10 @@ class _BluetoothPageState extends State<BluetoothPage> {
                   trailing: TextButton(
                     onPressed: () async {
                       try {
-                        await r.device.connect(timeout: const Duration(seconds: 10));
+                        await r.device.connect(
+                          license: License.free,
+                          timeout: const Duration(seconds: 10),
+                        );
                         if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text('Bağlandı: $name')),

@@ -431,7 +431,7 @@ class _MapsPageState extends State<MapsPage> {
       }
       return;
     }
-    final pick = await FilePicker.platform.pickFiles(
+    final pick = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['mbtiles'],
     );
@@ -1042,7 +1042,7 @@ class _MapsPageState extends State<MapsPage> {
   }
 
   Future<void> _importGeoFile() async {
-    final r = await FilePicker.platform.pickFiles(
+    final r = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['gpx', 'kml', 'kmz'],
     );

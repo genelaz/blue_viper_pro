@@ -92,7 +92,7 @@ class _BackupPageState extends State<BackupPage> {
   Future<void> _import() async {
     setState(() => _status = 'Dosya seçin…');
     try {
-      final r = await FilePicker.platform.pickFiles(
+      final r = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: const ['json'],
         withData: true,
