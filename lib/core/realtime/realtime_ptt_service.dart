@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import 'group_session.dart';
+import 'map_collab_models.dart';
+import 'member_audio_prefs.dart';
 import 'ptt_queue.dart';
 import 'ptt_service_notice.dart';
 
@@ -9,8 +13,32 @@ abstract class RealtimePttService {
   ValueListenable<PttQueueState> get stateListenable;
   PttQueueState get state;
 
+  /// Oda üyelerinin paylaştığı ses / dinleme tercihleri.
+  ValueListenable<Map<String, MemberAudioPrefs>> get memberAudioPrefsListenable;
+
+  MemberAudioPrefs memberAudioPrefsFor(String userId);
+
+  Map<String, MemberAudioPrefs> get memberAudioPrefsMap;
+
   /// Errors and moderation denials from the remote gateway (empty for in-memory demo).
   Stream<PttServiceNotice> get uxNoticeStream;
+
+  /// Harita işbirliği metin sohbeti (uzak ağ geçişi sunucuya bağlıdır).
+  Stream<MapCollabChatMessage> get chatMessages;
+
+  /// Diğer üyelerin paylaştığı anlık konumlar.
+  Stream<MapCollabPeerLocation> get peerLocations;
+
+  void sendChatMessage(String text);
+
+  void broadcastPeerLocation({
+    required double latitude,
+    required double longitude,
+    double? altitudeM,
+  });
+
+  /// Yerel kullanıcının tercihlerini kaydeder ve (WebSocket varsa) odaya yayınlar.
+  void publishMemberAudioPrefs(MemberAudioPrefs prefs);
 
   QueueEnqueueResult requestTalk(String userId);
   bool releaseTalk(String userId);
@@ -38,13 +66,21 @@ abstract class RealtimePttService {
 class InMemoryRealtimePttService implements RealtimePttService {
   @override
   final GroupSession session;
+  final GroupMember _owner;
   final PttQueueController _controller;
   final ValueNotifier<PttQueueState> _state;
+  final StreamController<MapCollabChatMessage> _chatCtrl =
+      StreamController<MapCollabChatMessage>.broadcast();
+  final StreamController<MapCollabPeerLocation> _peerCtrl =
+      StreamController<MapCollabPeerLocation>.broadcast();
+  final ValueNotifier<Map<String, MemberAudioPrefs>> _audioPrefs =
+      ValueNotifier<Map<String, MemberAudioPrefs>>(<String, MemberAudioPrefs>{});
 
   InMemoryRealtimePttService({
     required this.session,
     required GroupMember owner,
-  })  : _controller = PttQueueController(owner: owner),
+  })  : _owner = owner,
+        _controller = PttQueueController(owner: owner),
         _state = ValueNotifier<PttQueueState>(
           PttQueueController(owner: owner).state,
         ) {
@@ -53,6 +89,66 @@ class InMemoryRealtimePttService implements RealtimePttService {
 
   @override
   Stream<PttServiceNotice> get uxNoticeStream => Stream<PttServiceNotice>.empty();
+
+  @override
+  Stream<MapCollabChatMessage> get chatMessages => _chatCtrl.stream;
+
+  @override
+  Stream<MapCollabPeerLocation> get peerLocations => _peerCtrl.stream;
+
+  @override
+  ValueListenable<Map<String, MemberAudioPrefs>> get memberAudioPrefsListenable =>
+      _audioPrefs;
+
+  @override
+  MemberAudioPrefs memberAudioPrefsFor(String userId) =>
+      _audioPrefs.value[userId] ?? const MemberAudioPrefs();
+
+  @override
+  Map<String, MemberAudioPrefs> get memberAudioPrefsMap =>
+      Map.unmodifiable(_audioPrefs.value);
+
+  @override
+  void publishMemberAudioPrefs(MemberAudioPrefs prefs) {
+    final m = Map<String, MemberAudioPrefs>.from(_audioPrefs.value);
+    m[_owner.userId] = prefs;
+    _audioPrefs.value = m;
+  }
+
+  @override
+  void sendChatMessage(String text) {
+    final t = text.trim();
+    if (t.isEmpty) return;
+    final name =
+        _controller.state.members[_owner.userId]?.displayName ?? _owner.displayName;
+    if (_chatCtrl.isClosed) return;
+    _chatCtrl.add(
+      MapCollabChatMessage(
+        userId: _owner.userId,
+        displayName: name,
+        text: t,
+        sentAt: DateTime.now(),
+      ),
+    );
+  }
+
+  @override
+  void broadcastPeerLocation({
+    required double latitude,
+    required double longitude,
+    double? altitudeM,
+  }) {
+    if (_peerCtrl.isClosed) return;
+    _peerCtrl.add(
+      MapCollabPeerLocation(
+        userId: _owner.userId,
+        latitude: latitude,
+        longitude: longitude,
+        altitudeM: altitudeM,
+        sentAt: DateTime.now(),
+      ),
+    );
+  }
 
   factory InMemoryRealtimePttService.bootstrapDemo({
     required String ownerUserId,

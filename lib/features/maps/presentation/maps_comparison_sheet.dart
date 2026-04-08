@@ -77,6 +77,21 @@ Future<void> showMapsReferenceComparisonSheet(BuildContext context) {
                 'KMZ dışa aktarma, shapefile/GeoPDF dışa aktarma yok',
               ],
             ),
+            const _CompareBlock(
+              title: 'Harita işbirliği (oda + PTT)',
+              theyHave: [
+                'Çoğu harita uygulamasında canlı ekip sesi veya konum paylaşımı ayrı kanallarda',
+              ],
+              weHave: [
+                'Oda kodu / şifre, davet metni; baloncukta üyeler ve metin sohbet',
+                'Konum paylaşımı (kurucu / üye); haritada isim bandı, konuşanda dalga animasyonu',
+                'PTT kuyruğu ve moderasyon; ses tercihleri (giriş modu, öz-sessiz, odayı dinle) UI + wire',
+              ],
+              gaps: [
+                'Merkezi WebSocket ağ geçidi ve `stateSnapshot` (bkz. docs/realtime-*)',
+                'Gerçek ses taşıması (codec), VAD ve sürekli mikrofon işleme',
+              ],
+            ),
             const SizedBox(height: 8),
             Text(
               'Bu liste kabaca eğitim / ürün planlaması içindir; özellikler zamanla genişletilebilir.',

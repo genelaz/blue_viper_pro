@@ -107,9 +107,21 @@ Unless noted, events MAY flow **client → server** as commands and **server →
       "role": "owner",
       "muted": false
     }
-  ]
+  ],
+  "memberAudioPrefsByUser": {
+    "u2": {
+      "inputMode": "pushToTalk",
+      "speakerOn": false,
+      "micSelfMuted": false
+    }
+  }
 }
 ```
+
+`memberAudioPrefsByUser` is **optional**. When present, servers SHOULD include the
+last-known prefs for each connected user so clients can repaint “dinlemiyorum /
+sessiz mikrofon” after reconnect without waiting for fresh `memberAudioPrefs`
+events.
 
 ### 4.5 `requestTalk` / `releaseTalk`
 
@@ -155,6 +167,38 @@ PTT floor control: request a turn / release the floor.
 |-----------|-----------------|-------|
 | S → C | `refSeq`, `code` | Rejection of command |
 
+### 4.12 `chatMessage` (harita işbirliği sohbeti)
+
+| Direction | Required fields | Role |
+|-----------|-----------------|-------|
+| C → S, fanout to room | `payload.text` | Any member in session; server SHOULD rate-limit length / frequency |
+
+`payload` MAY include `displayName` (client-supplied label for UI).
+
+### 4.13 `peerLocation` (harita işbirliği konum ping’i)
+
+| Direction | Required fields | Role |
+|-----------|-----------------|-------|
+| C → S, fanout to room | `payload.latitude`, `payload.longitude` | Optional `altitudeM`; server SHOULD cap update rate per user |
+
+### 4.14 `memberAudioPrefs` (ses UI tercihleri — hoparlör / öz-sessiz / giriş modu)
+
+| Direction | Required fields | Role |
+|-----------|-----------------|-------|
+| C → S, fanout to room | `payload` per `$defs.memberAudioPrefsPayload` | Emitter updates **own** prefs (`actorUserId`); server MUST NOT allow spoofing another user’s prefs |
+
+Payload matches `MemberAudioPrefs.toPayload` in `lib/core/realtime/member_audio_prefs.dart`:
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `inputMode` | `voiceActivated` \| `pushToTalk` \| `alwaysOn` | Planned mic behavior (UI + future audio pipeline) |
+| `speakerOn` | boolean | `false` = kullanıcı odayı dinlemiyor (hoparlör kapalı) |
+| `micSelfMuted` | boolean | Kullanıcının kendi mikrofonunu sessize alması (moderatör `mute` ayrı) |
+
+**ACK:** Shipped client sends `seq` on collab events including `memberAudioPrefs`;
+servers MAY ACK them like other commands, or accept without ACK if gateway treats
+them as fire-and-forget (client already applied prefs locally).
+
 ---
 
 ## 5. Crosswalk: min-spec names ↔ wire `type`
@@ -177,6 +221,9 @@ below.
 | `stateSnapshot` | `stateSnapshot` |
 | `ack` | `ack` |
 | `error` | `error` |
+| _(extension)_ `collab.chat` | `chatMessage` |
+| _(extension)_ `collab.peerLocation` | `peerLocation` |
+| _(extension)_ `member.audioPrefs` | `memberAudioPrefs` |
 
 ---
 

@@ -12,26 +12,46 @@ class RealtimePttConfig {
   final String sessionName;
   final Uri? websocketUri;
 
+  /// Kabine bağlanırken kullanılan oda / oturum kimliği; boşsa `yerel-<currentUserId>`.
+  final String? sessionId;
+
   const RealtimePttConfig({
     required this.backend,
     required this.currentUserId,
     this.maxMembers = 30,
-    this.sessionName = 'Dag Ekibi',
+    this.sessionName = 'Harita ekibi',
     this.websocketUri,
+    this.sessionId,
   });
+
+  String get resolvedSessionId =>
+      sessionId ?? 'yerel-${currentUserId.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '')}';
 }
 
 class RealtimePttServiceFactory {
   static RealtimePttService create(RealtimePttConfig config) {
     switch (config.backend) {
       case RealtimePttBackend.inMemory:
-        return InMemoryRealtimePttService.bootstrapDemo(
-          ownerUserId: config.currentUserId,
+        final sid = config.resolvedSessionId;
+        if (sid == 'demo_session_1') {
+          return InMemoryRealtimePttService.bootstrapDemo(
+            ownerUserId: config.currentUserId,
+          );
+        }
+        return InMemoryRealtimePttService(
+          session: GroupSession(
+            sessionId: sid,
+            name: config.sessionName,
+            ownerUserId: config.currentUserId,
+            maxMembers: config.maxMembers,
+            createdAt: DateTime.now(),
+          ),
+          owner: defaultOwnerFor(config.currentUserId),
         );
       case RealtimePttBackend.remote:
-        final svc = WebSocketRealtimePttService(
+        return WebSocketRealtimePttService(
           session: GroupSession(
-            sessionId: 'remote_session_1',
+            sessionId: config.resolvedSessionId,
             name: config.sessionName,
             ownerUserId: config.currentUserId,
             maxMembers: config.maxMembers,
@@ -40,14 +60,6 @@ class RealtimePttServiceFactory {
           owner: defaultOwnerFor(config.currentUserId),
           websocketUri: config.websocketUri,
         );
-        for (final m in const [
-          GroupMember(userId: 'u2', displayName: 'Ekip-2', role: GroupRole.member),
-          GroupMember(userId: 'u3', displayName: 'Ekip-3', role: GroupRole.member),
-          GroupMember(userId: 'u4', displayName: 'Ekip-4', role: GroupRole.member),
-        ]) {
-          svc.addMember(actorId: config.currentUserId, member: m);
-        }
-        return svc;
     }
   }
 }
@@ -63,6 +75,14 @@ class RealtimePttServiceProvider {
   static void configure(RealtimePttConfig config) {
     _config = config;
     _cached = null;
+  }
+
+  static Future<void> disposeCurrent() async {
+    final s = _cached;
+    _cached = null;
+    if (s is WebSocketRealtimePttService) {
+      await s.dispose();
+    }
   }
 
   static RealtimePttService get instance {

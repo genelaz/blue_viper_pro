@@ -50,10 +50,13 @@ This index summarizes planning-ready realtime PTT issues.
 ## Backend Pending (Open Items)
 
 - Implement websocket room/session gateway with strict `sessionId` scoping.
-- Implement authoritative `state.snapshot` response source.
+- Implement authoritative `state.snapshot` response source (optional: include
+  `memberAudioPrefsByUser` for reconnect UX).
 - Enforce role policy server-side for moderation events (`mute/remove/force_next/rename`).
 - Implement server ACK/ERROR emission with `refSeq` and stable error codes.
 - Add replay/rate-limit protections and moderation audit logs.
+- Fanout `chatMessage`, `peerLocation`, and `memberAudioPrefs` for map
+  collaboration; validate `actorUserId` on prefs/location.
 
 ## Backend Kickoff Doc
 

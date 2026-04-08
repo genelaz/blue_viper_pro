@@ -11,6 +11,13 @@ enum RealtimePttEventType {
   renameMember,
   removeMember,
   stateSnapshot,
+  /// Metin sohbeti (sunucu şema dışı genişleme; yok sayılırsa istemci yine de yerel gösterir).
+  chatMessage,
+  /// Anlık konum yayını (şema dışı).
+  peerLocation,
+  /// Üye ses tercihleri (giriş modu, hoparlör, öz-sessiz).
+  memberAudioPrefs,
+  unknown,
 }
 
 class RealtimePttEvent {
@@ -53,10 +60,7 @@ class RealtimePttEvent {
 
   factory RealtimePttEvent.fromMap(Map<String, dynamic> map) {
     return RealtimePttEvent(
-      type: RealtimePttEventType.values.firstWhere(
-        (e) => e.name == map['type'],
-        orElse: () => RealtimePttEventType.stateSnapshot,
-      ),
+      type: _parseType(map['type'] as String?),
       actorUserId: map['actorUserId'] as String,
       targetUserId: map['targetUserId'] as String?,
       muted: map['muted'] as bool?,
@@ -69,5 +73,13 @@ class RealtimePttEvent {
           : null,
       sentAt: DateTime.tryParse(map['sentAt'] as String? ?? '') ?? DateTime.now(),
     );
+  }
+
+  static RealtimePttEventType _parseType(String? raw) {
+    if (raw == null || raw.isEmpty) return RealtimePttEventType.unknown;
+    for (final v in RealtimePttEventType.values) {
+      if (v.name == raw) return v;
+    }
+    return RealtimePttEventType.unknown;
   }
 }

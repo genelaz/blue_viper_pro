@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 
+import 'core/app_update/simple_update_channel.dart';
 import 'core/profile/weapon_profile_store.dart';
 import 'features/ballistics/presentation/ballistics_page.dart';
 import 'features/bluetooth/presentation/bluetooth_page.dart';
@@ -12,6 +14,7 @@ import 'features/licensing/presentation/activation_gate.dart';
 import 'features/maps/presentation/maps_page.dart';
 import 'features/maps/presentation/startup_permissions_page.dart';
 import 'core/geo/app_bootstrap_prefs.dart';
+import 'core/realtime/map_collab_identity.dart';
 import 'core/realtime/realtime_ptt_service_factory.dart';
 import 'features/shooting/presentation/shooting_hub_page.dart';
 import 'features/sync/presentation/backup_page.dart';
@@ -24,6 +27,7 @@ void main() async {
     } catch (_) {}
   }
   await WeaponProfileStore.loadPersisted();
+  await MapCollabIdentity.load();
   runApp(const BlueViperProApp());
 }
 
@@ -33,7 +37,7 @@ class BlueViperProApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Blue Viper Pro',
+      title: 'BlueViper',
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
@@ -104,6 +108,11 @@ class _RootScaffoldState extends State<_RootScaffold> {
     'PTT_WS_URL',
     defaultValue: '',
   );
+  /// Mağaza dışı dağıtım: HTTPS üzerinde bir `update.json` (bkz. [simple_update_channel.dart]).
+  static const String _updateManifestUrl = String.fromEnvironment(
+    'UPDATE_MANIFEST_URL',
+    defaultValue: '',
+  );
 
   RealtimePttBackend get _pttBackend {
     switch (_pttBackendEnv.toLowerCase()) {
@@ -161,6 +170,56 @@ class _RootScaffoldState extends State<_RootScaffold> {
 
   bool get _canPopOneLevel {
     return _branchIndex == 1 || _shootingPanel != _ShootingPanel.hub;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_checkSimpleDistributionUpdate());
+    });
+  }
+
+  Future<void> _checkSimpleDistributionUpdate() async {
+    if (_updateManifestUrl.isEmpty) return;
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    final offer = await checkSimpleAppUpdate(manifestUrl: _updateManifestUrl);
+    if (!mounted || offer == null) return;
+    final goDownload = await showDialog<bool>(
+      context: context,
+      barrierDismissible: !offer.forceUpdate,
+      builder: (ctx) => AlertDialog(
+        title: Text(offer.forceUpdate ? 'Güncelleme gerekli' : 'Yeni sürüm'),
+        content: SingleChildScrollView(
+          child: Text(
+            [
+              'Yayın: ${offer.latestVersionLabel} (build ${offer.latestBuild}).',
+              if (offer.message != null && offer.message!.trim().isNotEmpty)
+                offer.message!.trim(),
+              if (offer.forceUpdate)
+                '\nBu sürüm artık desteklenmiyor; devam için yüklemeniz gerekir.',
+            ].join('\n\n'),
+          ),
+        ),
+        actions: [
+          if (!offer.forceUpdate)
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Sonra'),
+            ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('İndir'),
+          ),
+        ],
+      ),
+    );
+    if (goDownload == true && mounted) {
+      final uri = Uri.tryParse(offer.apkUrl);
+      if (uri != null) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    }
   }
 
   @override

@@ -11,12 +11,19 @@ Each websocket frame is JSON with these top-level keys:
 - `type` (string): one of
   - `join`
   - `leave`
+  - `stateSnapshotRequest`
   - `requestTalk`
   - `releaseTalk`
   - `forceNext`
   - `mute`
+  - `renameMember`
   - `removeMember`
   - `stateSnapshot`
+  - `ack`
+  - `error`
+  - `chatMessage` (harita sohbeti)
+  - `peerLocation` (harita konum paylaşımı)
+  - `memberAudioPrefs` (ses tercihleri: giriş modu, hoparlör, öz-sessiz)
 - `actorUserId` (string): user that emitted the action.
 - `targetUserId` (string, optional): user impacted by the action.
 - `muted` (bool, optional): mute state for `mute` event.

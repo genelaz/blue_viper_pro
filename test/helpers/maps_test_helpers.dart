@@ -1,9 +1,15 @@
+import 'package:blue_viper_pro/core/realtime/map_collab_identity.dart';
 import 'package:blue_viper_pro/core/realtime/realtime_ptt_service_factory.dart';
 import 'package:blue_viper_pro/features/maps/presentation/maps_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> pumpStandaloneMapsPage(WidgetTester tester) async {
+  SharedPreferences.setMockInitialValues(<String, Object>{
+    'map_collab_user_id': 'test-maps-user',
+  });
+  await MapCollabIdentity.load();
   await tester.pumpWidget(
     const MaterialApp(
       home: Scaffold(

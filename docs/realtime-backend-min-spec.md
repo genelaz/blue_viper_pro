@@ -57,7 +57,22 @@ realtime work.
 - `stateSnapshot` (authoritative full state)
 - `ack`
 - `error`
-- Fanout of accepted room events
+- Fanout of accepted room events (PTT + moderation + optional collaboration types below)
+
+### 5.1) Map collaboration fanout (optional, shipped client)
+
+Wire JSON `type` strings (see schema `ptt-wire-v1.schema.json`):
+
+- `chatMessage` — sohbet; `payload.text` required.
+- `peerLocation` — canlı konum ping’i; `payload.latitude` / `longitude` required.
+- `memberAudioPrefs` — ses UI tercihleri; `payload` = `{ inputMode, speakerOn, micSelfMuted }`.
+
+Rules:
+
+- Server MUST validate `actorUserId` against the connection’s authenticated user
+  for `memberAudioPrefs` (and SHOULD for `peerLocation` / `chatMessage`).
+- Apply rate limits on `peerLocation` and `chatMessage`; drops are acceptable
+  under load.
 
 ## 6) Authoritative snapshot payload
 
@@ -68,9 +83,20 @@ realtime work.
   "members": [
     { "userId": "u1", "displayName": "Lider", "role": "owner", "muted": false },
     { "userId": "u2", "displayName": "Ekip-2", "role": "member", "muted": false }
-  ]
+  ],
+  "memberAudioPrefsByUser": {
+    "u2": {
+      "inputMode": "pushToTalk",
+      "speakerOn": true,
+      "micSelfMuted": false
+    }
+  }
 }
 ```
+
+`memberAudioPrefsByUser` is **optional**. When included, it is a map of `userId`
+→ last-known prefs so mobile clients can restore “kimler dinlemiyor / sessiz”
+immediately after reconnect.
 
 Rules:
 

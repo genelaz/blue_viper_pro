@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'group_session.dart';
+import 'map_collab_models.dart';
+import 'member_audio_prefs.dart';
 import 'ptt_queue.dart';
 import 'ptt_service_notice.dart';
 import 'realtime_ptt_events.dart';
@@ -25,6 +27,12 @@ class WebSocketRealtimePttService implements RealtimePttService {
   final Map<int, _PendingCommand> _pendingBySeq = <int, _PendingCommand>{};
   final StreamController<PttServiceNotice> _uxNoticeController =
       StreamController<PttServiceNotice>.broadcast();
+  final StreamController<MapCollabChatMessage> _chatCtrl =
+      StreamController<MapCollabChatMessage>.broadcast();
+  final StreamController<MapCollabPeerLocation> _peerCtrl =
+      StreamController<MapCollabPeerLocation>.broadcast();
+  final ValueNotifier<Map<String, MemberAudioPrefs>> _audioPrefs =
+      ValueNotifier<Map<String, MemberAudioPrefs>>(<String, MemberAudioPrefs>{});
 
   WebSocketRealtimePttService({
     required this.session,
@@ -81,6 +89,142 @@ class WebSocketRealtimePttService implements RealtimePttService {
 
   @override
   Stream<PttServiceNotice> get uxNoticeStream => _uxNoticeController.stream;
+
+  @override
+  Stream<MapCollabChatMessage> get chatMessages => _chatCtrl.stream;
+
+  @override
+  Stream<MapCollabPeerLocation> get peerLocations => _peerCtrl.stream;
+
+  @override
+  ValueListenable<Map<String, MemberAudioPrefs>> get memberAudioPrefsListenable =>
+      _audioPrefs;
+
+  @override
+  MemberAudioPrefs memberAudioPrefsFor(String userId) =>
+      _audioPrefs.value[userId] ?? const MemberAudioPrefs();
+
+  @override
+  Map<String, MemberAudioPrefs> get memberAudioPrefsMap =>
+      Map.unmodifiable(_audioPrefs.value);
+
+  @override
+  void publishMemberAudioPrefs(MemberAudioPrefs prefs) {
+    final m = Map<String, MemberAudioPrefs>.from(_audioPrefs.value);
+    m[_selfUserId] = prefs;
+    _audioPrefs.value = m;
+    final ev = RealtimePttEvent(
+      type: RealtimePttEventType.memberAudioPrefs,
+      actorUserId: _selfUserId,
+      payload: prefs.toPayload(),
+      sentAt: DateTime.now(),
+    );
+    _sendCollabEvent(ev);
+    if (_transport == null) {
+      _onMemberAudioInbound(ev);
+    }
+  }
+
+  void _onMemberAudioInbound(RealtimePttEvent event) {
+    final p = MemberAudioPrefs.fromPayload(event.payload);
+    final m = Map<String, MemberAudioPrefs>.from(_audioPrefs.value);
+    m[event.actorUserId] = p;
+    _audioPrefs.value = m;
+  }
+
+  @override
+  void sendChatMessage(String text) {
+    final t = text.trim();
+    if (t.isEmpty) return;
+    final name =
+        _controller.state.members[_selfUserId]?.displayName ?? 'Ben';
+    final ev = RealtimePttEvent(
+      type: RealtimePttEventType.chatMessage,
+      actorUserId: _selfUserId,
+      payload: {'text': t, 'displayName': name},
+      sentAt: DateTime.now(),
+    );
+    _sendCollabEvent(ev);
+    if (_transport == null) {
+      _onChatInbound(ev);
+    }
+  }
+
+  @override
+  void broadcastPeerLocation({
+    required double latitude,
+    required double longitude,
+    double? altitudeM,
+  }) {
+    final ev = RealtimePttEvent(
+      type: RealtimePttEventType.peerLocation,
+      actorUserId: _selfUserId,
+      payload: {
+        'latitude': latitude,
+        'longitude': longitude,
+        'altitudeM': altitudeM,
+      },
+      sentAt: DateTime.now(),
+    );
+    _sendCollabEvent(ev);
+    if (_transport == null) {
+      _onPeerLocationInbound(ev);
+    }
+  }
+
+  void _sendCollabEvent(RealtimePttEvent event) {
+    final seq = event.seq ?? _nextSeq++;
+    final outbound = RealtimePttEvent(
+      type: event.type,
+      actorUserId: event.actorUserId,
+      targetUserId: event.targetUserId,
+      muted: event.muted,
+      seq: seq,
+      refSeq: event.refSeq,
+      code: event.code,
+      message: event.message,
+      payload: event.payload,
+      sentAt: event.sentAt,
+    );
+    _transport?.send({
+      'sessionId': session.sessionId,
+      ...outbound.toMap(),
+    });
+  }
+
+  void _onChatInbound(RealtimePttEvent event) {
+    final p = event.payload;
+    final text = p?['text'] as String? ?? '';
+    if (text.isEmpty) return;
+    final name = p?['displayName'] as String? ?? event.actorUserId;
+    if (_chatCtrl.isClosed) return;
+    _chatCtrl.add(
+      MapCollabChatMessage(
+        userId: event.actorUserId,
+        displayName: name,
+        text: text,
+        sentAt: event.sentAt,
+      ),
+    );
+  }
+
+  void _onPeerLocationInbound(RealtimePttEvent event) {
+    final p = event.payload;
+    final lat = (p?['latitude'] as num?)?.toDouble();
+    final lng = (p?['longitude'] as num?)?.toDouble();
+    if (lat == null || lng == null) return;
+    final alt = (p?['altitudeM'] as num?)?.toDouble();
+    if (_peerCtrl.isClosed) return;
+    _peerCtrl.add(
+      MapCollabPeerLocation(
+        userId: event.actorUserId,
+        latitude: lat,
+        longitude: lng,
+        altitudeM: alt,
+        sentAt: event.sentAt,
+      ),
+    );
+  }
 
   void _emitServerError(RealtimePttEvent event) {
     if (_uxNoticeController.isClosed) return;
@@ -176,6 +320,21 @@ class WebSocketRealtimePttService implements RealtimePttService {
   }
 
   void onRemoteEvent(RealtimePttEvent event) {
+    if (event.type == RealtimePttEventType.chatMessage) {
+      _onChatInbound(event);
+      return;
+    }
+    if (event.type == RealtimePttEventType.peerLocation) {
+      _onPeerLocationInbound(event);
+      return;
+    }
+    if (event.type == RealtimePttEventType.memberAudioPrefs) {
+      _onMemberAudioInbound(event);
+      return;
+    }
+    if (event.type == RealtimePttEventType.unknown) {
+      return;
+    }
     final key = [
       event.type.name,
       event.actorUserId,
@@ -292,7 +451,23 @@ class WebSocketRealtimePttService implements RealtimePttService {
               ),
             );
           }
+          final rawPrefs = p['memberAudioPrefsByUser'];
+          if (rawPrefs is Map) {
+            final next = Map<String, MemberAudioPrefs>.from(_audioPrefs.value);
+            rawPrefs.forEach((key, value) {
+              if (key is! String || value is! Map) return;
+              next[key] = MemberAudioPrefs.fromPayload(
+                Map<String, dynamic>.from(value),
+              );
+            });
+            _audioPrefs.value = next;
+          }
         }
+        break;
+      case RealtimePttEventType.chatMessage:
+      case RealtimePttEventType.peerLocation:
+      case RealtimePttEventType.memberAudioPrefs:
+      case RealtimePttEventType.unknown:
         break;
     }
     _state.value = _controller.state;
@@ -304,6 +479,8 @@ class WebSocketRealtimePttService implements RealtimePttService {
     }
     _pendingBySeq.clear();
     await _uxNoticeController.close();
+    await _chatCtrl.close();
+    await _peerCtrl.close();
     await _transport?.dispose();
   }
 

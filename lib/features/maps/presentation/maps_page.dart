@@ -26,7 +26,12 @@ import '../../../core/realtime/realtime_ptt_service.dart';
 import '../../../core/realtime/realtime_ptt_service_factory.dart';
 import 'coordinate_target_sheet.dart';
 import 'elevation_profile_dialog.dart';
+import 'map_collab_overlay.dart';
 import 'maps_comparison_sheet.dart';
+import '../../../core/realtime/map_collab_identity.dart';
+import '../../../core/realtime/map_collab_models.dart';
+import '../../../core/realtime/map_room_codes.dart';
+import 'map_speaking_wave.dart';
 
 const double _kMapBottomToolsHeight = 56;
 
@@ -64,8 +69,10 @@ class MapsPage extends StatefulWidget {
 class _MapsPageState extends State<MapsPage> {
   final MapController _mapController = MapController();
   void Function(VoidCallback fn)? _mapDetailsSheetSetState;
-  static const String _currentUserId = 'u1';
-  late final RealtimePttService _pttService;
+
+  String get _collabUserId => MapCollabIdentity.currentUserId;
+
+  RealtimePttService get _pttService => RealtimePttServiceProvider.instance;
 
   /// [flutter test] sets `FLUTTER_TEST=true`; the binding mocks HTTP with 400.
   /// Use silent tiles so map tests do not spam [ClientException] stack traces.
@@ -91,6 +98,19 @@ class _MapsPageState extends State<MapsPage> {
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
   StreamSubscription<Position>? _positionSub;
   StreamSubscription<PttServiceNotice>? _pttUxSub;
+  StreamSubscription<MapCollabPeerLocation>? _collabPeerSub;
+  Timer? _shareLocationTimer;
+  final Map<String, MapCollabPeerLocation> _peerLiveByUser = {};
+  /// Oda kurucusu konum paylaşımı.
+  bool _ownerSharesLiveLocation = false;
+
+  /// Üye olarak kendi konumumu haritada yayınla.
+  bool _memberSharesLocation = false;
+
+  /// Kurucunun canlı konumunu haritada takip (üyeler); varsayılan açık.
+  bool _followRoomOwnerLive = true;
+
+  String? _inviteRoomPassword;
 
   _MapTapMode _tapMode = _MapTapMode.waypoint1;
   String _status = 'Konum izni bekleniyor';
@@ -232,14 +252,17 @@ class _MapsPageState extends State<MapsPage> {
     RealtimePttServiceProvider.configure(
       RealtimePttConfig(
         backend: widget.pttBackend,
-        currentUserId: _currentUserId,
+        currentUserId: _collabUserId,
         websocketUri: widget.pttWebsocketUrl == null
             ? null
             : Uri.tryParse(widget.pttWebsocketUrl!),
       ),
     );
-    _pttService = RealtimePttServiceProvider.instance;
     _pttUxSub = _pttService.uxNoticeStream.listen(_onPttUxNotice);
+    _pttService.stateListenable.addListener(_onPttCollabListenable);
+    _pttService.memberAudioPrefsListenable.addListener(_onPttCollabListenable);
+    _attachCollabPeerStream();
+    _restartShareLocationTimer();
     _initConnectivityAndPosition();
     unawaited(_restoreOfflineBasemapIfAny());
   }
@@ -251,13 +274,349 @@ class _MapsPageState extends State<MapsPage> {
     );
   }
 
+  void _onPttCollabListenable() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    _pttService.stateListenable.removeListener(_onPttCollabListenable);
+    _pttService.memberAudioPrefsListenable.removeListener(_onPttCollabListenable);
     _connectivitySub?.cancel();
     _positionSub?.cancel();
     _pttUxSub?.cancel();
+    _collabPeerSub?.cancel();
+    _shareLocationTimer?.cancel();
     _mbTilesProvider?.dispose();
     super.dispose();
+  }
+
+  Future<void> _reconnectPttWithSession(String sessionId) async {
+    final prev = RealtimePttServiceProvider.instance;
+    prev.stateListenable.removeListener(_onPttCollabListenable);
+    prev.memberAudioPrefsListenable.removeListener(_onPttCollabListenable);
+    _collabPeerSub?.cancel();
+    _shareLocationTimer?.cancel();
+    await RealtimePttServiceProvider.disposeCurrent();
+    RealtimePttServiceProvider.configure(
+      RealtimePttConfig(
+        backend: widget.pttBackend,
+        currentUserId: _collabUserId,
+        sessionId: sessionId,
+        websocketUri: widget.pttWebsocketUrl == null
+            ? null
+            : Uri.tryParse(widget.pttWebsocketUrl!),
+      ),
+    );
+    _pttUxSub?.cancel();
+    _pttUxSub = RealtimePttServiceProvider.instance.uxNoticeStream.listen(_onPttUxNotice);
+    final next = RealtimePttServiceProvider.instance;
+    next.stateListenable.addListener(_onPttCollabListenable);
+    next.memberAudioPrefsListenable.addListener(_onPttCollabListenable);
+    if (mounted) {
+      setState(() => _peerLiveByUser.clear());
+    } else {
+      _peerLiveByUser.clear();
+    }
+    _attachCollabPeerStream();
+    _restartShareLocationTimer();
+  }
+
+  String _roomOwnerUserId() {
+    final st = _pttService.state;
+    for (final e in st.members.entries) {
+      if (e.value.role == GroupRole.owner) return e.key;
+    }
+    return _pttService.session.ownerUserId;
+  }
+
+  bool _isRoomOwner() {
+    final st = _pttService.state;
+    final m = st.members[_collabUserId];
+    if (m != null) return m.role == GroupRole.owner;
+    return _pttService.session.ownerUserId == _collabUserId;
+  }
+
+  bool _shouldShareMyLocation() {
+    if (_isRoomOwner()) return _ownerSharesLiveLocation;
+    return _memberSharesLocation;
+  }
+
+  Marker _trackedPersonMarker({
+    required LatLng point,
+    required String label,
+    required bool isSpeaking,
+  }) {
+    return Marker(
+      point: point,
+      width: 110,
+      height: isSpeaking ? 92 : 74,
+      alignment: Alignment.bottomCenter,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        verticalDirection: VerticalDirection.up,
+        children: [
+          Icon(
+            Icons.person_pin_circle,
+            size: 36,
+            color: isSpeaking ? Colors.lightGreenAccent : Colors.deepOrange.shade400,
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 2),
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 104),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.72),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.white24),
+              ),
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+          if (isSpeaking) ...[
+            const SizedBox(height: 3),
+            const MapSpeakingWave(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _attachCollabPeerStream() {
+    _collabPeerSub?.cancel();
+    _collabPeerSub = RealtimePttServiceProvider.instance.peerLocations.listen((loc) {
+      if (!mounted) return;
+      final ownerId = _roomOwnerUserId();
+
+      setState(() => _peerLiveByUser[loc.userId] = loc);
+
+      if (_followRoomOwnerLive &&
+          _collabUserId != ownerId &&
+          loc.userId == ownerId) {
+        final z = _mapController.camera.zoom;
+        _mapController.move(LatLng(loc.latitude, loc.longitude), z);
+      }
+    });
+  }
+
+  void _restartShareLocationTimer() {
+    _shareLocationTimer?.cancel();
+    if (!_shouldShareMyLocation()) return;
+    _shareLocationTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted) return;
+      final g = _myPosition;
+      if (g == null) return;
+      RealtimePttServiceProvider.instance.broadcastPeerLocation(
+        latitude: g.latitude,
+        longitude: g.longitude,
+        altitudeM: _gpsAltDeviceMeters,
+      );
+    });
+  }
+
+  Future<void> _promptCreateRoom() async {
+    final suggested = MapRoomCodes.generate(length: 6);
+    final pwCtrl = TextEditingController(text: suggested);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Yeni harita odası'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('Bu şifreyi davet metninde arkadaşlarınızla paylaşacaksınız.'),
+            const SizedBox(height: 10),
+            TextField(
+              controller: pwCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Oda şifresi',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('İptal')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Oluştur')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final pw = pwCtrl.text.trim();
+    if (pw.isEmpty) return;
+    final code = MapRoomCodes.generate(length: 8);
+    await _reconnectPttWithSession(code);
+    if (!mounted) return;
+    setState(() {
+      _inviteRoomPassword = pw;
+      _ownerSharesLiveLocation = true;
+      _memberSharesLocation = false;
+      _followRoomOwnerLive = false;
+    });
+    _restartShareLocationTimer();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Oda oluşturuldu: $code — baloncuktan «Davet» ile gönderin.')),
+    );
+  }
+
+  Future<void> _promptJoinRoom() async {
+    final codeCtrl = TextEditingController();
+    final pwCtrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Harita odasına katıl'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: codeCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Oda kodu',
+                border: OutlineInputBorder(),
+              ),
+              textCapitalization: TextCapitalization.characters,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: pwCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Oda şifresi',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('İptal')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Katıl')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final code = codeCtrl.text.trim().toUpperCase().replaceAll(RegExp(r'\s+'), '');
+    final pw = pwCtrl.text.trim();
+    if (code.isEmpty || pw.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Kod ve şifre gerekli.')),
+        );
+      }
+      return;
+    }
+    await _reconnectPttWithSession(code);
+    if (!mounted) return;
+    setState(() {
+      _inviteRoomPassword = pw;
+      _ownerSharesLiveLocation = false;
+      _memberSharesLocation = false;
+      _followRoomOwnerLive = true;
+    });
+    _restartShareLocationTimer();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Oda oturumu yenilendi. Kurucu konumunu takip varsayılan açık.')),
+    );
+  }
+
+  void _requestTalkWithGuards(void Function(VoidCallback fn) applyState) {
+    final aud = _pttService.memberAudioPrefsFor(_collabUserId);
+    if (aud.micSelfMuted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Mikrofon sessize. Baloncuk → Ses bölümünden açın.')),
+      );
+      return;
+    }
+    final mem = _pttService.state.members[_collabUserId];
+    if (mem?.muted == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Susturuldunuz; konuşamazsınız.')),
+      );
+      return;
+    }
+    applyState(() {
+      final r = _pttService.requestTalk(_collabUserId);
+      if (r != QueueEnqueueResult.accepted && mounted) {
+        final msg = switch (r) {
+          QueueEnqueueResult.muted => 'Susturuldunuz; sıraya giremezsiniz.',
+          QueueEnqueueResult.alreadySpeaker => 'Zaten konuşuyorsunuz.',
+          QueueEnqueueResult.alreadyQueued => 'Zaten sıradasınız.',
+          QueueEnqueueResult.forbidden => 'Konuşma isteği uygulanamadı.',
+          _ => '',
+        };
+        if (msg.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+        }
+      }
+    });
+  }
+
+  void _hubPttTalk() => _requestTalkWithGuards(setState);
+
+  void _hubPttRelease() {
+    setState(() {
+      final ok = _pttService.releaseTalk(_collabUserId);
+      if (!ok && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Şu anda konuşmacı değilsiniz.')),
+        );
+      }
+    });
+  }
+
+  void _hubForceNext() {
+    setState(() {
+      final ok = _pttService.forceNextSpeaker(actorId: _collabUserId);
+      if (!ok && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sıradakine geçiş uygulanamadı.')),
+        );
+      }
+    });
+  }
+
+  void _hubSelfRename() {
+    unawaited(_showRenameDialog(
+      targetUserId: _collabUserId,
+      currentName: _pttService.state.members[_collabUserId]?.displayName ?? 'Ben',
+      isSelf: true,
+      updateState: (fn) => setState(fn),
+    ));
+  }
+
+  Future<void> _shareCollabInvite() async {
+    final code = _pttService.session.sessionId;
+    final pw = _inviteRoomPassword;
+    final g = _myPosition;
+    final locLine = g != null
+        ? 'Son bilinen konum (yaklaşık WGS84): ${g.latitude.toStringAsFixed(5)}, ${g.longitude.toStringAsFixed(5)}\n'
+        : '';
+    final buf = StringBuffer()
+      ..writeln('Blue Viper Pro — harita odası')
+      ..writeln('Oda kodu: $code');
+    if (pw != null && pw.isNotEmpty) {
+      buf.writeln('Oda şifresi: $pw');
+    }
+    buf
+      ..writeln(locLine)
+      ..writeln(
+        'Uygulama: Harita → sağ alttaki «Konuşma» baloncuğu → «Katıl».',
+      )
+      ..writeln('Canlı konum yalnızca oda kurucusunun açtığı paylaşımla yayınlanır (sunucu destekliyse).');
+    await SharePlus.instance.share(
+      ShareParams(text: buf.toString(), subject: 'Blue Viper harita daveti'),
+    );
   }
 
   Future<void> _initConnectivityAndPosition() async {
@@ -1373,14 +1732,29 @@ class _MapsPageState extends State<MapsPage> {
     void Function(VoidCallback fn) updateState,
   ) {
     final st = _pttService.state;
-    final isLeader = st.members[_currentUserId]?.role == GroupRole.owner;
+    final isLeader = st.members[_collabUserId]?.role == GroupRole.owner;
     final speakerName = st.currentSpeakerId == null
         ? 'Kanal boş'
         : (st.members[st.currentSpeakerId!]?.displayName ?? st.currentSpeakerId!);
     final queuedText = st.queuedUserIds.isEmpty ? '—' : st.queuedUserIds.join(', ');
+    final roomId = _pttService.session.sessionId;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text('Oda — $roomId', style: Theme.of(context).textTheme.titleSmall),
+        Text(
+          'Oluşturma, davet ve katılım: sağ alttaki «Konuşma» baloncuğu.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        if (_inviteRoomPassword != null && _inviteRoomPassword!.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              'Kayıtlı davet şifresi: ${_inviteRoomPassword!}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        const Divider(height: 20),
         Text('Grup telsiz (PTT)', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 6),
         Text('Aktif konuşan: $speakerName'),
@@ -1392,8 +1766,8 @@ class _MapsPageState extends State<MapsPage> {
           children: [
             OutlinedButton.icon(
               onPressed: () => _showRenameDialog(
-                targetUserId: _currentUserId,
-                currentName: st.members[_currentUserId]?.displayName ?? 'Ben',
+                targetUserId: _collabUserId,
+                currentName: st.members[_collabUserId]?.displayName ?? 'Ben',
                 isSelf: true,
                 updateState: updateState,
               ),
@@ -1401,30 +1775,14 @@ class _MapsPageState extends State<MapsPage> {
               label: const Text('Adımı değiştir'),
             ),
             FilledButton.icon(
-              onPressed: () {
-                updateState(() {
-                  final r = _pttService.requestTalk(_currentUserId);
-                  if (r != QueueEnqueueResult.accepted && mounted) {
-                    final msg = switch (r) {
-                      QueueEnqueueResult.muted => 'Susturuldunuz; sıraya giremezsiniz.',
-                      QueueEnqueueResult.alreadySpeaker => 'Zaten konuşuyorsunuz.',
-                      QueueEnqueueResult.alreadyQueued => 'Zaten sıradasınız.',
-                      QueueEnqueueResult.forbidden => 'Konuşma isteği uygulanamadı.',
-                      _ => '',
-                    };
-                    if (msg.isNotEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-                    }
-                  }
-                });
-              },
+              onPressed: () => _requestTalkWithGuards(updateState),
               icon: const Icon(Icons.mic, size: 18),
               label: const Text('Konuş (PTT)'),
             ),
             OutlinedButton.icon(
               onPressed: () {
                 updateState(() {
-                  final ok = _pttService.releaseTalk(_currentUserId);
+                  final ok = _pttService.releaseTalk(_collabUserId);
                   if (!ok && mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Şu anda konuşmacı değilsiniz.')),
@@ -1439,7 +1797,7 @@ class _MapsPageState extends State<MapsPage> {
               OutlinedButton.icon(
                 onPressed: () {
                   updateState(() {
-                    final ok = _pttService.forceNextSpeaker(actorId: _currentUserId);
+                    final ok = _pttService.forceNextSpeaker(actorId: _collabUserId);
                     if (!ok && mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Sıradakine geçiş uygulanamadı.')),
@@ -1453,7 +1811,7 @@ class _MapsPageState extends State<MapsPage> {
           ],
         ),
         const SizedBox(height: 8),
-        ...st.members.values.where((m) => m.userId != _currentUserId).map((m) {
+        ...st.members.values.where((m) => m.userId != _collabUserId).map((m) {
           return ListTile(
             dense: true,
             contentPadding: EdgeInsets.zero,
@@ -1478,7 +1836,7 @@ class _MapsPageState extends State<MapsPage> {
                         onPressed: () {
                           updateState(() {
                             final ok = _pttService.setMuted(
-                              actorId: _currentUserId,
+                              actorId: _collabUserId,
                               targetUserId: m.userId,
                               muted: !m.muted,
                             );
@@ -1496,7 +1854,7 @@ class _MapsPageState extends State<MapsPage> {
                         onPressed: () {
                           updateState(() {
                             final ok = _pttService.removeMember(
-                              actorId: _currentUserId,
+                              actorId: _collabUserId,
                               targetUserId: m.userId,
                             );
                             if (!ok && mounted) {
@@ -1546,7 +1904,7 @@ class _MapsPageState extends State<MapsPage> {
     if (newName.isEmpty) return;
     updateState(() {
       final ok = _pttService.renameMember(
-        actorId: _currentUserId,
+        actorId: _collabUserId,
         targetUserId: targetUserId,
         newDisplayName: newName,
       );
@@ -1585,6 +1943,8 @@ class _MapsPageState extends State<MapsPage> {
     }
 
     final topInset = MediaQuery.paddingOf(context).top + kToolbarHeight;
+    final pttState = _pttService.state;
+    final speakerId = pttState.currentSpeakerId;
 
     return Stack(
       fit: StackFit.expand,
@@ -1702,12 +2062,18 @@ class _MapsPageState extends State<MapsPage> {
                           ),
                         ),
                       ),
-                    if (gps != null)
+                    if (gps != null && !_shouldShareMyLocation())
                       Marker(
                         point: gps,
                         width: 44,
                         height: 44,
                         child: Icon(Icons.navigation, color: Colors.blue.shade700, size: 40),
+                      ),
+                    if (gps != null && _shouldShareMyLocation())
+                      _trackedPersonMarker(
+                        point: gps,
+                        label: pttState.members[_collabUserId]?.displayName ?? 'Sen',
+                        isSpeaking: speakerId == _collabUserId,
                       ),
                     if (w1 != null)
                       Marker(
@@ -1723,6 +2089,13 @@ class _MapsPageState extends State<MapsPage> {
                         height: 42,
                         child: Icon(Icons.place, color: Colors.green.shade700, size: 36),
                       ),
+                    for (final e in _peerLiveByUser.entries)
+                      if (e.key != _collabUserId || !_shouldShareMyLocation())
+                        _trackedPersonMarker(
+                          point: LatLng(e.value.latitude, e.value.longitude),
+                          label: pttState.members[e.key]?.displayName ?? e.key,
+                          isSpeaking: speakerId == e.key,
+                        ),
                   ],
                 ),
                 if (gps != null && w1 != null)
@@ -1796,6 +2169,34 @@ class _MapsPageState extends State<MapsPage> {
           right: 6,
           bottom: _kMapBottomToolsHeight + MediaQuery.paddingOf(context).bottom + 8,
           child: _buildZoomAndLocationColumn(),
+        ),
+        Positioned(
+          right: 8,
+          bottom: _kMapBottomToolsHeight + MediaQuery.paddingOf(context).bottom + 168,
+          child: MapCollabHubOverlay(
+            service: _pttService,
+            currentUserId: _collabUserId,
+            ownerSharesLiveLocation: _ownerSharesLiveLocation,
+            onOwnerSharesLiveChanged: (v) {
+              setState(() => _ownerSharesLiveLocation = v);
+              _restartShareLocationTimer();
+            },
+            followRoomOwnerLocation: _followRoomOwnerLive,
+            onFollowRoomOwnerChanged: (v) => setState(() => _followRoomOwnerLive = v),
+            memberSharesLocation: _memberSharesLocation,
+            onMemberSharesLocationChanged: (v) {
+              setState(() => _memberSharesLocation = v);
+              _restartShareLocationTimer();
+            },
+            onCreateRoom: () => unawaited(_promptCreateRoom()),
+            onJoinRoom: () => unawaited(_promptJoinRoom()),
+            onShareInvite: () => unawaited(_shareCollabInvite()),
+            onOpenMemberManagementSheet: () => unawaited(_openMapDetailsSheet()),
+            onSelfRename: _hubSelfRename,
+            onPttTalk: _hubPttTalk,
+            onPttRelease: _hubPttRelease,
+            onForceNextSpeaker: _hubForceNext,
+          ),
         ),
       ],
     );

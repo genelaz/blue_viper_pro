@@ -1,3 +1,4 @@
+import 'package:blue_viper_pro/core/realtime/map_collab_identity.dart';
 import 'package:blue_viper_pro/features/maps/presentation/maps_page.dart';
 import 'package:blue_viper_pro/main.dart';
 import 'helpers/maps_test_helpers.dart';
@@ -14,7 +15,9 @@ void main() {
       'activation_remote_v1': false,
       // bootstrap intro
       'app_permissions_intro_done_v1': true,
+      'map_collab_user_id': 'test-nav-user',
     });
+    await MapCollabIdentity.load();
 
     await tester.pumpWidget(const BlueViperProApp());
     await tester.pumpAndSettle();
