@@ -2,6 +2,8 @@
 
 A new Flutter project.
 
+Ekip: güncel kod ve `git` kontrolleri için [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.
