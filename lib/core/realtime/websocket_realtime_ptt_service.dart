@@ -18,7 +18,7 @@ class WebSocketRealtimePttService implements RealtimePttService {
   final GroupSession session;
   final PttQueueController _controller;
   final ValueNotifier<PttQueueState> _state;
-  final WebSocketTransportClient? _transport;
+  late final WebSocketTransportClient? _transport;
   final Set<String> _appliedRemoteEventKeys = <String>{};
   final String _selfUserId;
   int _nextSeq = 1;
@@ -31,6 +31,8 @@ class WebSocketRealtimePttService implements RealtimePttService {
       StreamController<MapCollabChatMessage>.broadcast();
   final StreamController<MapCollabPeerLocation> _peerCtrl =
       StreamController<MapCollabPeerLocation>.broadcast();
+  final StreamController<MapCollabTargetReport> _targetCtrl =
+      StreamController<MapCollabTargetReport>.broadcast();
   final ValueNotifier<Map<String, MemberAudioPrefs>> _audioPrefs =
       ValueNotifier<Map<String, MemberAudioPrefs>>(<String, MemberAudioPrefs>{});
 
@@ -43,15 +45,15 @@ class WebSocketRealtimePttService implements RealtimePttService {
         _state = ValueNotifier<PttQueueState>(
           PttQueueController(owner: owner).state,
         ),
-        _selfUserId = owner.userId,
-        _transport = transportClient ??
-            (websocketUri == null
-                ? null
-                : WebSocketTransportClient(
-                    uri: websocketUri,
-                    onConnected: null,
-                  )) {
+        _selfUserId = owner.userId {
     _state.value = _controller.state;
+    _transport = transportClient ??
+        (websocketUri == null
+            ? null
+            : WebSocketTransportClient(
+                uri: websocketUri,
+                onConnected: _sendJoinAndSnapshotRequest,
+              ));
     _transport?.messages.listen((m) {
       final incomingSessionId = m['sessionId'] as String?;
       if (incomingSessionId != null && incomingSessionId != session.sessionId) {
@@ -61,7 +63,10 @@ class WebSocketRealtimePttService implements RealtimePttService {
       onRemoteEvent(event);
     });
     _transport?.connect();
-    _sendJoinAndSnapshotRequest();
+    // Enjekte edilen taşıma (testler) onConnected vermez; üretim URI yolunda yeniden bağlantı onConnected ile snapshot ister.
+    if (transportClient != null) {
+      _sendJoinAndSnapshotRequest();
+    }
   }
 
   void _sendJoinAndSnapshotRequest() {
@@ -95,6 +100,9 @@ class WebSocketRealtimePttService implements RealtimePttService {
 
   @override
   Stream<MapCollabPeerLocation> get peerLocations => _peerCtrl.stream;
+
+  @override
+  Stream<MapCollabTargetReport> get targetReports => _targetCtrl.stream;
 
   @override
   ValueListenable<Map<String, MemberAudioPrefs>> get memberAudioPrefsListenable =>
@@ -172,6 +180,20 @@ class WebSocketRealtimePttService implements RealtimePttService {
     }
   }
 
+  @override
+  void broadcastTargetReport(MapCollabTargetReport report) {
+    final ev = RealtimePttEvent(
+      type: RealtimePttEventType.targetReport,
+      actorUserId: _selfUserId,
+      payload: report.toWirePayload(),
+      sentAt: report.sentAt,
+    );
+    _sendCollabEvent(ev);
+    if (_transport == null) {
+      _onTargetInbound(ev);
+    }
+  }
+
   void _sendCollabEvent(RealtimePttEvent event) {
     final seq = event.seq ?? _nextSeq++;
     final outbound = RealtimePttEvent(
@@ -221,6 +243,28 @@ class WebSocketRealtimePttService implements RealtimePttService {
         latitude: lat,
         longitude: lng,
         altitudeM: alt,
+        sentAt: event.sentAt,
+      ),
+    );
+  }
+
+  void _onTargetInbound(RealtimePttEvent event) {
+    final p = event.payload;
+    if (p == null) return;
+    final lat = (p['latitude'] as num?)?.toDouble();
+    final lng = (p['longitude'] as num?)?.toDouble();
+    if (lat == null || lng == null) return;
+    if (_targetCtrl.isClosed) return;
+    _targetCtrl.add(
+      MapCollabTargetReport(
+        userId: event.actorUserId,
+        displayName: (p['displayName'] as String?) ?? event.actorUserId,
+        latitude: lat,
+        longitude: lng,
+        bearingFromReporterDeg:
+            (p['bearingFromReporterDeg'] as num?)?.toDouble(),
+        distanceFromReporterM:
+            (p['distanceFromReporterM'] as num?)?.toDouble(),
         sentAt: event.sentAt,
       ),
     );
@@ -326,6 +370,10 @@ class WebSocketRealtimePttService implements RealtimePttService {
     }
     if (event.type == RealtimePttEventType.peerLocation) {
       _onPeerLocationInbound(event);
+      return;
+    }
+    if (event.type == RealtimePttEventType.targetReport) {
+      _onTargetInbound(event);
       return;
     }
     if (event.type == RealtimePttEventType.memberAudioPrefs) {
@@ -466,6 +514,7 @@ class WebSocketRealtimePttService implements RealtimePttService {
         break;
       case RealtimePttEventType.chatMessage:
       case RealtimePttEventType.peerLocation:
+      case RealtimePttEventType.targetReport:
       case RealtimePttEventType.memberAudioPrefs:
       case RealtimePttEventType.unknown:
         break;
@@ -481,6 +530,7 @@ class WebSocketRealtimePttService implements RealtimePttService {
     await _uxNoticeController.close();
     await _chatCtrl.close();
     await _peerCtrl.close();
+    await _targetCtrl.close();
     await _transport?.dispose();
   }
 

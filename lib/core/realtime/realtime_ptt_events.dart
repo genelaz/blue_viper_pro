@@ -17,6 +17,8 @@ enum RealtimePttEventType {
   peerLocation,
   /// Üye ses tercihleri (giriş modu, hoparlör, öz-sessiz).
   memberAudioPrefs,
+  /// Harita üzerinde anlık hedef işareti (sunucu `targetReport` iletişini iletmelidir).
+  targetReport,
   unknown,
 }
 

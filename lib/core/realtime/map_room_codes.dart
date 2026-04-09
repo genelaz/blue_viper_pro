@@ -4,6 +4,9 @@ import 'dart:math';
 class MapRoomCodes {
   static const _chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
+  /// [MapRoomSession.deriveSessionId] dahil tüketim için.
+  static String get safeAlphabet => _chars;
+
   static String generate({int length = 8}) {
     final r = Random.secure();
     return List.generate(length, (_) => _chars[r.nextInt(_chars.length)]).join();

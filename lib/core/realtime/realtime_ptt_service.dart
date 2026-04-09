@@ -29,6 +29,9 @@ abstract class RealtimePttService {
   /// Diğer üyelerin paylaştığı anlık konumlar.
   Stream<MapCollabPeerLocation> get peerLocations;
 
+  /// Odada bildirilen hedef noktalar (bidir; sunucu desteklemiyorsa yalnız yerel).
+  Stream<MapCollabTargetReport> get targetReports;
+
   void sendChatMessage(String text);
 
   void broadcastPeerLocation({
@@ -36,6 +39,8 @@ abstract class RealtimePttService {
     required double longitude,
     double? altitudeM,
   });
+
+  void broadcastTargetReport(MapCollabTargetReport report);
 
   /// Yerel kullanıcının tercihlerini kaydeder ve (WebSocket varsa) odaya yayınlar.
   void publishMemberAudioPrefs(MemberAudioPrefs prefs);
@@ -73,6 +78,8 @@ class InMemoryRealtimePttService implements RealtimePttService {
       StreamController<MapCollabChatMessage>.broadcast();
   final StreamController<MapCollabPeerLocation> _peerCtrl =
       StreamController<MapCollabPeerLocation>.broadcast();
+  final StreamController<MapCollabTargetReport> _targetCtrl =
+      StreamController<MapCollabTargetReport>.broadcast();
   final ValueNotifier<Map<String, MemberAudioPrefs>> _audioPrefs =
       ValueNotifier<Map<String, MemberAudioPrefs>>(<String, MemberAudioPrefs>{});
 
@@ -95,6 +102,9 @@ class InMemoryRealtimePttService implements RealtimePttService {
 
   @override
   Stream<MapCollabPeerLocation> get peerLocations => _peerCtrl.stream;
+
+  @override
+  Stream<MapCollabTargetReport> get targetReports => _targetCtrl.stream;
 
   @override
   ValueListenable<Map<String, MemberAudioPrefs>> get memberAudioPrefsListenable =>
@@ -148,6 +158,12 @@ class InMemoryRealtimePttService implements RealtimePttService {
         sentAt: DateTime.now(),
       ),
     );
+  }
+
+  @override
+  void broadcastTargetReport(MapCollabTargetReport report) {
+    if (_targetCtrl.isClosed) return;
+    _targetCtrl.add(report);
   }
 
   factory InMemoryRealtimePttService.bootstrapDemo({

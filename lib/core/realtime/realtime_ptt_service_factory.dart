@@ -28,6 +28,7 @@ class RealtimePttConfig {
       sessionId ?? 'yerel-${currentUserId.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '')}';
 }
 
+/// PTT kuyruğu fabrikası. Ses yakalama/kodlama için yer tutucu: `ptt_audio_pipeline.dart`.
 class RealtimePttServiceFactory {
   static RealtimePttService create(RealtimePttConfig config) {
     switch (config.backend) {
