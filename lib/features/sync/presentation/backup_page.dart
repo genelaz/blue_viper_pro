@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../core/sync/app_backup_service.dart';
 import '../../../core/sync/remote_backup_service.dart';
+import '../../../core/ui/field_ui_widgets.dart';
 
 /// Yedek dışa / içe aktarma (dosya + isteğe bağlı uzak URL).
 ///
@@ -189,15 +190,12 @@ class _BackupPageState extends State<BackupPage> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text(
-            'Cihazlar arası yedek',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Tüm yerel ayarlar (silah profili, kullanıcı silah/dürbün/mühimmat listeleri) tek JSON dosyasında toplanır. '
-            'Dosyayı bulut sürücü veya mesajla taşıyın; veya kendi HTTPS uç noktanıza PUT/GET ile senk edin.',
-            style: TextStyle(fontSize: 14),
+          FieldPageHeader(
+            title: 'Yedek ve senkron',
+            badge: 'VERİ',
+            subtitle:
+                'Silah profili ve yerel listeler tek JSON’da toplanır. Dosyayı paylaşın veya kendi HTTPS '
+                'uç noktanıza PUT/GET ile bağlayın.',
           ),
           const SizedBox(height: 16),
           SwitchListTile(

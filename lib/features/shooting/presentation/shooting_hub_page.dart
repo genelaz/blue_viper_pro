@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
-/// AlpinQuest benzeri atış giriş ekranı: balistik ve yardımcı araçlara kartlarla geçiş.
+import '../../../core/ui/field_ui_widgets.dart';
+
+/// Atış giriş: balistik ve saha araçları; hedef kitle: saha avcısı, dağcı, taktik konum kullanıcısı.
 class ShootingHubPage extends StatelessWidget {
   const ShootingHubPage({
     super.key,
@@ -17,100 +19,48 @@ class ShootingHubPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
       children: [
-        Text(
-          'Atış',
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+        const FieldPageHeader(
+          title: 'Saha merkezi',
+          badge: 'AV · DAĞ · TAKTİK',
+          subtitle:
+              'Balistik hesap, çevresel veri ve yedek. Canlı koordinat, rota ve grup konumu için '
+              'alttaki Harita sekmesini kullanın — tek elde okunur, düşük ışıkta kontrastlı arayüz.',
         ),
-        const SizedBox(height: 4),
-        Text(
-          'Balistik hesap ve saha donanımı. Harita için alttan «Maps» sekmesini kullanın.',
-          style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
-        ),
-        const SizedBox(height: 20),
-        _HubCard(
-          icon: Icons.calculate,
+        const SizedBox(height: 22),
+        FieldActionCard(
+          icon: Icons.calculate_rounded,
           title: 'Balistik hesap',
-          subtitle: 'Menzil, ortam, retikül — Strelok tarzı sekmeli çözüm',
+          subtitle: 'Menzil, ortam ve nişangah — sekmeli saha hesaplayıcı',
           onTap: onBalistik,
           emphasized: true,
         ),
         const SizedBox(height: 12),
-        _HubCard(
-          icon: Icons.bluetooth_searching,
-          title: 'Bluetooth',
-          subtitle: 'Kestrel / BLE ortam değerleri',
+        FieldActionCard(
+          icon: Icons.bluetooth_searching_rounded,
+          title: 'Bluetooth ölçüm',
+          subtitle: 'Kestrel ve uyumlu BLE ortam sensörleri',
           onTap: onBluetooth,
         ),
         const SizedBox(height: 12),
-        _HubCard(
+        FieldActionCard(
           icon: Icons.cloud_sync_outlined,
-          title: 'Yedek',
-          subtitle: 'Profil ve veri senkronu',
+          title: 'Yedek ve geri yükle',
+          subtitle: 'Profiller ve ayarlar — dosya veya uzak uç',
           onTap: onYedek,
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 22),
         OutlinedButton.icon(
           onPressed: onHarita,
-          icon: const Icon(Icons.map_outlined),
-          label: const Text('Harita programına geç (Maps)'),
+          icon: const Icon(Icons.map_outlined, size: 22),
+          label: const Text('Harita ve koordinat'),
           style: OutlinedButton.styleFrom(
-            minimumSize: const Size.fromHeight(48),
+            minimumSize: const Size.fromHeight(50),
           ),
         ),
       ],
-    );
-  }
-}
-
-class _HubCard extends StatelessWidget {
-  const _HubCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-    this.emphasized = false,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-  final bool emphasized;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: emphasized ? cs.primaryContainer.withValues(alpha: 0.35) : cs.surfaceContainerHighest.withValues(alpha: 0.5),
-      borderRadius: BorderRadius.circular(12),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              Icon(icon, size: 36, color: cs.primary),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                    const SizedBox(height: 4),
-                    Text(subtitle, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
-                  ],
-                ),
-              ),
-              Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

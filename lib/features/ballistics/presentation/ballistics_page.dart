@@ -1023,15 +1023,64 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
     await _loadUserCatalog();
   }
 
+  /// Strelok-benzeri saha balistik düzeni: gruplu kartlar, aynı motor ve formlar.
+  Widget _strelokSection(BuildContext context, String title, List<Widget> children) {
+    final cs = Theme.of(context).colorScheme;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      elevation: 0,
+      color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.55)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 4,
+                  height: 18,
+                  margin: const EdgeInsets.only(right: 8),
+                  decoration: BoxDecoration(
+                    color: cs.primary,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.85,
+                          color: cs.primary,
+                          fontSize: 12,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...children,
+          ],
+        ),
+      ),
+    );
+  }
+
   List<Widget> _tabSolution(BuildContext context, SizedBox spacing) {
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     return [
       Row(
         children: [
           Expanded(
             child: Text(
-              'Çözüm',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              'Atış çözümü',
+              style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w900, letterSpacing: 0.2),
             ),
           ),
           PopupMenuButton<void>(
@@ -1050,129 +1099,146 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
           ),
         ],
       ),
-      spacing,
+      const SizedBox(height: 6),
       Text(
         '${_weaponNameCtrl.text} · ${_selectedAmmo?.name ?? "—"} · Vo ${_mvCtrl.text} m/s · '
         'BC ${_bcCtrl.text} · ${_bcKind.label}',
-        style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+        style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant, height: 1.35),
       ),
       TextButton.icon(
         onPressed: () => setState(() => _tabController.index = 1),
-        icon: const Icon(Icons.edit_outlined, size: 18),
-        label: const Text('Silah / mühimmat düzenle'),
+        icon: const Icon(Icons.tune_rounded, size: 18),
+        label: const Text('Silah / dürbün / mühimmat'),
       ),
-      spacing,
-      _numField(_distanceCtrl, 'Menzil', suffix: 'm'),
-      if (_savedTargets.isNotEmpty) ...[
-        spacing,
-        Wrap(
-          spacing: 6,
-          runSpacing: 4,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            const Text('Kayıtlı: ', style: TextStyle(fontWeight: FontWeight.w500)),
-            for (final t in _savedTargets)
-              ActionChip(
-                label: Text('${t.name} ${t.distanceMeters.toStringAsFixed(0)} m'),
-                onPressed: () => setState(() {
-                  _distanceCtrl.text = t.distanceMeters.toStringAsFixed(1);
-                  _elevDeltaCtrl.text = t.elevationDeltaMeters.toStringAsFixed(1);
-                }),
+      _strelokSection(context, 'MENZİL', [
+        _numField(
+          _distanceCtrl,
+          'Menzil',
+          suffix: 'm',
+          style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w800, fontSize: 22),
+          textAlign: TextAlign.center,
+        ),
+        if (_savedTargets.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text('Kayıtlı', style: tt.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
+              for (final t in _savedTargets)
+                ActionChip(
+                  label: Text('${t.name} ${t.distanceMeters.toStringAsFixed(0)} m'),
+                  onPressed: () => setState(() {
+                    _distanceCtrl.text = t.distanceMeters.toStringAsFixed(1);
+                    _elevDeltaCtrl.text = t.elevationDeltaMeters.toStringAsFixed(1);
+                  }),
+                ),
+              OutlinedButton.icon(
+                onPressed: _solveAllSavedTargetsDialog,
+                icon: const Icon(Icons.table_rows, size: 18),
+                label: const Text('Tümünü hesapla'),
               ),
-            OutlinedButton.icon(
-              onPressed: _solveAllSavedTargetsDialog,
-              icon: const Icon(Icons.table_rows, size: 18),
-              label: const Text('Tümünü hesapla'),
-            ),
-          ],
+            ],
+          ),
+        ],
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: _saveTargetPresetDialog,
+            icon: const Icon(Icons.bookmark_add_outlined, size: 18),
+            label: const Text('Hedefi kaydet'),
+          ),
         ),
-      ],
-      spacing,
-      Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton.icon(
-          onPressed: _saveTargetPresetDialog,
-          icon: const Icon(Icons.bookmark_add_outlined),
-          label: const Text('Menzili kayıtlı hedeflere ekle'),
+      ]),
+      _strelokSection(context, 'ORTAM', [
+        _numField(_tempCtrl, 'Sıcaklık (ISA)', suffix: '°C'),
+        const SizedBox(height: 8),
+        _numField(_pressureCtrl, 'Basınç', suffix: 'hPa'),
+        const SizedBox(height: 8),
+        _numField(_rhCtrl, 'Göreli nem', suffix: '%'),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: _daCtrl,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            labelText: 'Yoğunluk irtifa (opsiyonel, m)',
+            helperText: 'Boş: P/T/nem; dolu: basınç ISA’dan türetilir',
+          ),
         ),
-      ),
-      spacing,
-      _numField(_tempCtrl, 'Sıcaklık (ISA)', suffix: '°C'),
-      spacing,
-      _numField(_pressureCtrl, 'Basınç', suffix: 'hPa'),
-      spacing,
-      _numField(_rhCtrl, 'Göreli nem', suffix: '%'),
-      spacing,
-      TextFormField(
-        controller: _daCtrl,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        decoration: const InputDecoration(
-          labelText: 'Yoğunluk irtifa (opsiyonel, m)',
-          helperText: 'Boş: sadece P/T/nem; dolu: basınç ISA’dan türetilir',
-          border: OutlineInputBorder(),
+        const SizedBox(height: 8),
+        _numField(
+          _elevDeltaCtrl,
+          'Hedef rakım farkı (hedef−atıcı, +yukarı)',
+          suffix: 'm',
         ),
-      ),
-      spacing,
-      _numField(
-        _elevDeltaCtrl,
-        'Hedef rakım farkı (hedef−atıcı, +yukarı)',
-        suffix: 'm',
-      ),
-      spacing,
-      _numField(_slopeCtrl, 'Eğim açısı (Δh yoksa)', suffix: '°'),
-      const Divider(height: 24),
-      const Text('Rüzgâr', style: TextStyle(fontWeight: FontWeight.bold)),
-      spacing,
-      SwitchListTile(
-        contentPadding: EdgeInsets.zero,
-        title: const Text('Met rüzgâr vektörü'),
-        subtitle: const Text('Hız + yön (kuzeyden °) + atış azimutu'),
-        value: _useMetWindVector,
-        onChanged: (v) => setState(() => _useMetWindVector = v),
-      ),
-      if (_useMetWindVector) ...[
-        _numField(_windSpeedVecCtrl, 'Rüzgâr hızı', suffix: 'm/s'),
-        spacing,
-        _numField(_windFromCtrl, 'Rüzgâr (nereden, kuzey=0°)', suffix: '°'),
-        spacing,
-        _numField(_shotAzCtrl, 'Atış azimutu (kuzeyden)', suffix: '°'),
-      ] else
-        _numField(_crossWindCtrl, 'Yan rüzgâr (+ sağa iter)', suffix: 'm/s'),
-      const Divider(height: 24),
-      Text('Nişan · sıfır · klik', style: Theme.of(context).textTheme.titleSmall),
-      Text(
-        '${_sightHcmCtrl.text} cm · ${_zeroRangeCtrl.text} m · ${_clickUnit.label} ${_clickValueCtrl.text}',
-        style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
-      ),
-      TextButton(
-        onPressed: () => setState(() => _tabController.index = 1),
-        child: const Text('Nişan ve klik ayarlarını düzenle'),
-      ),
-      const Divider(height: 24),
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
+        const SizedBox(height: 8),
+        _numField(_slopeCtrl, 'Eğim açısı (Δh yoksa)', suffix: '°'),
+      ]),
+      _strelokSection(context, 'RÜZGÂR', [
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Met rüzgâr vektörü'),
+          subtitle: const Text('Hız + yön (kuzeyden °) + atış azimutu'),
+          value: _useMetWindVector,
+          onChanged: (v) => setState(() => _useMetWindVector = v),
+        ),
+        if (_useMetWindVector) ...[
+          _numField(_windSpeedVecCtrl, 'Rüzgâr hızı', suffix: 'm/s'),
+          const SizedBox(height: 8),
+          _numField(_windFromCtrl, 'Rüzgâr (nereden, kuzey=0°)', suffix: '°'),
+          const SizedBox(height: 8),
+          _numField(_shotAzCtrl, 'Atış azimutu (kuzeyden)', suffix: '°'),
+        ] else
+          _numField(_crossWindCtrl, 'Yan rüzgâr (+ sağa iter)', suffix: 'm/s'),
+      ]),
+      _strelokSection(context, 'NİŞAN / KLİK', [
+        Text(
+          '${_sightHcmCtrl.text} cm · ${_zeroRangeCtrl.text} m · ${_clickUnit.label} ${_clickValueCtrl.text}',
+          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+        ),
+        TextButton(
+          onPressed: () => setState(() => _tabController.index = 1),
+          child: const Text('Nişan ve klik değerlerini düzenle'),
+        ),
+      ]),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           FilledButton.icon(
             onPressed: _solve,
-            icon: const Icon(Icons.calculate),
-            label: const Text('Hesapla'),
+            icon: const Icon(Icons.calculate_rounded),
+            label: const Text('HESAPLA'),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(50),
+              textStyle: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.8),
+            ),
           ),
-          OutlinedButton.icon(
-            onPressed: _truingDialog,
-            icon: const Icon(Icons.auto_fix_high),
-            label: const Text('Truing (BC)'),
-          ),
-          OutlinedButton.icon(
-            onPressed: _rangeTableDialog,
-            icon: const Icon(Icons.table_rows),
-            label: const Text('Menzil tablosu'),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _truingDialog,
+                  icon: const Icon(Icons.auto_fix_high, size: 20),
+                  label: const Text('Truing BC'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _rangeTableDialog,
+                  icon: const Icon(Icons.table_rows, size: 20),
+                  label: const Text('Tablo'),
+                ),
+              ),
+            ],
           ),
         ],
       ),
-      const SizedBox(height: 16),
+      const SizedBox(height: 14),
       if (_result != null) ...[
-        _ResultCard(
+        _StrelokHeroResult(
           result: _result!,
           clickUnit: _clickUnit,
           clickValue: _parse(_clickValueCtrl.text),
@@ -1206,15 +1272,20 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
   }
 
   List<Widget> _tabProfile(BuildContext context, SizedBox spacing) {
+    final tt = Theme.of(context).textTheme;
     return [
-      Text('Silah / mühimmat', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-      spacing,
-      const Text(
-        'Strelok tarzı: silah, dürbün ve mühimmat seçimi; Vo, BC, nişan yüksekliği ve sıfır burada.',
-        style: TextStyle(fontSize: 13),
+      Text(
+        'Silah ve mühimmat',
+        style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w900),
       ),
-      const Divider(height: 24),
-      DropdownButtonFormField<WeaponType>(
+      const SizedBox(height: 6),
+      Text(
+        'Silah, dürbün ve kartuş seçimi; çıkış hızı, BC, nişan yüksekliği ve sıfır bu sekmede.',
+        style: tt.bodySmall?.copyWith(height: 1.4),
+      ),
+      spacing,
+      _strelokSection(context, 'SEÇİM', [
+        DropdownButtonFormField<WeaponType>(
         key: ValueKey(_selectedWeapon?.id ?? 'weapon_null'),
         initialValue: _selectedWeapon,
         decoration: const InputDecoration(
@@ -1230,7 +1301,7 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
         ],
         onChanged: _onWeaponChanged,
       ),
-      spacing,
+      const SizedBox(height: 8),
       Align(
         alignment: Alignment.centerRight,
         child: OutlinedButton.icon(
@@ -1239,7 +1310,7 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
           label: const Text('Silah ekle'),
         ),
       ),
-      spacing,
+      const SizedBox(height: 10),
       DropdownButtonFormField<ScopeType>(
         key: ValueKey(_selectedScope?.id ?? 'scope_null'),
         initialValue: _selectedScope,
@@ -1247,7 +1318,7 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
         items: [for (final s in _scopes) DropdownMenuItem(value: s, child: Text(s.name))],
         onChanged: _onScopeChanged,
       ),
-      spacing,
+      const SizedBox(height: 8),
       Align(
         alignment: Alignment.centerRight,
         child: OutlinedButton.icon(
@@ -1256,7 +1327,7 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
           label: const Text('Dürbün ekle'),
         ),
       ),
-      spacing,
+      const SizedBox(height: 10),
       DropdownButtonFormField<AmmoType>(
         key: ValueKey(_selectedAmmo?.id ?? 'ammo_null'),
         initialValue: _selectedAmmo,
@@ -1267,7 +1338,7 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
         ],
         onChanged: _onAmmoChanged,
       ),
-      spacing,
+      const SizedBox(height: 8),
       if (_selectedAmmo != null && _selectedAmmo!.variants.length > 1)
         DropdownButtonFormField<String>(
           key: ValueKey(
@@ -1291,7 +1362,7 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
             });
           },
         ),
-      if (_selectedAmmo != null && _selectedAmmo!.variants.length > 1) spacing,
+      if (_selectedAmmo != null && _selectedAmmo!.variants.length > 1) const SizedBox(height: 8),
       if (_selectedAmmo != null) ...[
         SegmentedButton<int>(
           showSelectedIcon: false,
@@ -1319,7 +1390,7 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
           'Önerilen namlu bandı otomatik dolabilir; bu seçim her zaman elle değiştirilebilir.',
           style: Theme.of(context).textTheme.bodySmall,
         ),
-        spacing,
+        const SizedBox(height: 8),
       ],
       Align(
         alignment: Alignment.centerRight,
@@ -1329,9 +1400,10 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
           label: const Text('Mühimmat ekle'),
         ),
       ),
-      spacing,
+      ]),
+      _strelokSection(context, 'MÜHİMMAT', [
       _numField(_weaponNameCtrl, 'Silah adı', numeric: false),
-      spacing,
+      const SizedBox(height: 8),
       DropdownButtonFormField<BcKind>(
         key: ValueKey(_bcKind),
         initialValue: _bcKind,
@@ -1345,19 +1417,17 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
           });
         },
       ),
-      spacing,
+      const SizedBox(height: 8),
       _numField(_mvCtrl, 'Çıkış hızı (m/s - tablo öncesi)', suffix: 'm/s'),
-      spacing,
+      const SizedBox(height: 8),
       _bcFormField(),
-      const Divider(height: 24),
-      const Text('Nişan hattı', style: TextStyle(fontWeight: FontWeight.bold)),
-      spacing,
+      ]),
+      _strelokSection(context, 'NİŞAN HATTI', [
       _numField(_sightHcmCtrl, 'Dürbün ekseni yüksekliği (sight height)', suffix: 'cm'),
-      spacing,
+      const SizedBox(height: 8),
       _numField(_zeroRangeCtrl, 'Sıfırlama menzili', suffix: 'm'),
-      const Divider(height: 24),
-      const Text('Barut sıcaklığı → Vo (≥2 çift, ΔT≥5°C)', style: TextStyle(fontWeight: FontWeight.bold)),
-      spacing,
+      ]),
+      _strelokSection(context, 'BARUT SICAKLIĞI → Vo', [
       Row(
         children: [
           Expanded(child: _looseField(_powderT1Ctrl, 'T₁ °C')),
@@ -1365,7 +1435,7 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
           Expanded(child: _looseField(_powderV1Ctrl, 'V₁ m/s')),
         ],
       ),
-      spacing,
+      const SizedBox(height: 8),
       Row(
         children: [
           Expanded(child: _looseField(_powderT2Ctrl, 'T₂ °C')),
@@ -1373,11 +1443,10 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
           Expanded(child: _looseField(_powderV2Ctrl, 'V₂ m/s')),
         ],
       ),
-      spacing,
+      const SizedBox(height: 8),
       _looseField(_powderCurTCtrl, 'Şu an barut sıcaklığı °C (boş: hava sıcaklığı)'),
-      const Divider(height: 24),
-      const Text('Optik / klik', style: TextStyle(fontWeight: FontWeight.bold)),
-      spacing,
+      ]),
+      _strelokSection(context, 'OPTİK / KLİK', [
       DropdownButtonFormField<ClickUnit>(
         key: ValueKey(_clickUnit),
         initialValue: _clickUnit,
@@ -1385,21 +1454,32 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
         onChanged: (v) => setState(() => _clickUnit = v ?? _clickUnit),
         decoration: const InputDecoration(labelText: 'Klik birimi', border: OutlineInputBorder()),
       ),
-      spacing,
+      const SizedBox(height: 8),
       _numField(_clickValueCtrl, 'Klik değeri'),
-      spacing,
+      const SizedBox(height: 12),
       FilledButton.icon(
         onPressed: _saveWeaponProfile,
-        icon: const Icon(Icons.save),
+        icon: const Icon(Icons.save_outlined),
         label: const Text('Profili kaydet'),
       ),
+      ]),
     ];
   }
 
   List<Widget> _tabAdvanced(BuildContext context, SizedBox spacing) {
+    final tt = Theme.of(context).textTheme;
     return [
-      Text('Gelişmiş', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+      Text(
+        'Ek fizik ve sürüklenme',
+        style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+      ),
+      const SizedBox(height: 6),
+      Text(
+        'Coriolis, spin, jump ve parçalı BC — aynı hesap motoru.',
+        style: tt.bodySmall?.copyWith(height: 1.4),
+      ),
       spacing,
+      _strelokSection(context, 'BALİSTİK EKLER', [
       SwitchListTile(
         contentPadding: EdgeInsets.zero,
         title: const Text('Coriolis'),
@@ -1469,13 +1549,21 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
           ),
         ],
       ),
+      ]),
     ];
   }
 
   List<Widget> _tabReticle(BuildContext context, SizedBox spacing) {
+    final tt = Theme.of(context).textTheme;
     return [
-      Text('Retikül', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+      Text('Retikül kütüphanesi', style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+      const SizedBox(height: 6),
+      Text(
+        'Düzen seçin; FFP/SFP ve büyütme değerleri tutmayı etkiler.',
+        style: tt.bodySmall?.copyWith(height: 1.4),
+      ),
       spacing,
+      _strelokSection(context, 'RETİKÜL', [
       Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1588,9 +1676,10 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
       ),
       spacing,
       Text(
-        'Tutma önizlemesi ve hesap «Çözüm» sekmesinde, «Hesapla» ile güncellenir.',
-        style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
+        'Tutma önizlemesi ve hesap «Çözüm» sekmesinde, «HESAPLA» ile güncellenir.',
+        style: tt.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
       ),
+      ]),
     ];
   }
 
@@ -1598,48 +1687,85 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
   Widget build(BuildContext context) {
     const spacing = SizedBox(height: 12);
     final theme = Theme.of(context);
-    return Form(
-      key: _formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Material(
-            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-            child: TabBar(
-              controller: _tabController,
-              isScrollable: true,
-              tabs: const [
-                Tab(text: 'Çözüm'),
-                Tab(text: 'Silah'),
-                Tab(text: 'Gelişmiş'),
-                Tab(text: 'Retikül'),
-              ],
+    final cs = theme.colorScheme;
+    final localTheme = theme.copyWith(
+      inputDecorationTheme: InputDecorationTheme(
+        isDense: true,
+        filled: true,
+        fillColor: cs.surfaceContainerHigh.withValues(alpha: 0.72),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: cs.outline.withValues(alpha: 0.4)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: cs.primary, width: 2),
+        ),
+      ),
+    );
+    return Theme(
+      data: localTheme,
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Material(
+              elevation: 2,
+              shadowColor: Colors.black45,
+              color: cs.surfaceContainerHighest.withValues(alpha: 0.75),
+              child: TabBar(
+                controller: _tabController,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                indicatorColor: cs.primary,
+                indicatorWeight: 3,
+                labelColor: cs.primary,
+                unselectedLabelColor: cs.onSurfaceVariant,
+                labelStyle: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                  letterSpacing: 0.15,
+                ),
+                unselectedLabelStyle: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+                tabs: const [
+                  Tab(icon: Icon(Icons.center_focus_strong, size: 20), text: 'Çözüm'),
+                  Tab(icon: Icon(Icons.shield_outlined, size: 20), text: 'Silah'),
+                  Tab(icon: Icon(Icons.tune, size: 20), text: 'Ek'),
+                  Tab(icon: Icon(Icons.grid_4x4_outlined, size: 20), text: 'Retikül'),
+                ],
+              ),
             ),
-          ),
-          Expanded(
-            child: IndexedStack(
-              index: _tabController.index,
-              children: [
-                ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: _tabSolution(context, spacing),
-                ),
-                ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: _tabProfile(context, spacing),
-                ),
-                ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: _tabAdvanced(context, spacing),
-                ),
-                ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: _tabReticle(context, spacing),
-                ),
-              ],
+            Expanded(
+              child: IndexedStack(
+                index: _tabController.index,
+                children: [
+                  ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: _tabSolution(context, spacing),
+                  ),
+                  ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: _tabProfile(context, spacing),
+                  ),
+                  ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: _tabAdvanced(context, spacing),
+                  ),
+                  ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: _tabReticle(context, spacing),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1658,9 +1784,13 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
     String label, {
     String? suffix,
     bool numeric = true,
+    TextStyle? style,
+    TextAlign textAlign = TextAlign.start,
   }) {
     return TextFormField(
       controller: c,
+      style: style,
+      textAlign: textAlign,
       keyboardType: numeric
           ? const TextInputType.numberWithOptions(decimal: true)
           : TextInputType.text,
@@ -1705,12 +1835,13 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
   }
 }
 
-class _ResultCard extends StatelessWidget {
+/// Saha balistik uygulamalarına benzer büyük rakamlı özet + ayrıntı ızgarası.
+class _StrelokHeroResult extends StatelessWidget {
   final BallisticsSolveOutput result;
   final ClickUnit clickUnit;
   final double clickValue;
 
-  const _ResultCard({
+  const _StrelokHeroResult({
     required this.result,
     required this.clickUnit,
     required this.clickValue,
@@ -1718,55 +1849,136 @@ class _ResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    Widget heroCol(String title, String primary, String unitLine) {
+      return Expanded(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Text('Sonuç', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            _kv('Yükseliş', '${result.dropMil.toStringAsFixed(2)} mil / ${result.dropMoa.toStringAsFixed(2)} MOA'),
-            _kv('Yanal (rüzgâr+yanal düzeltmeler)', '${result.windMil.toStringAsFixed(2)} mil / ${result.windMoa.toStringAsFixed(2)} MOA'),
-            _kv('Hareketli hedef öncüsü', '${result.leadMil.toStringAsFixed(2)} mil / ${result.leadMoa.toStringAsFixed(2)} MOA'),
-            _kv(
-              'Toplam yatay tutma',
-              '${result.combinedLateralMil.toStringAsFixed(2)} mil / ${result.combinedLateralMoa.toStringAsFixed(2)} MOA',
+            Text(
+              title,
+              style: tt.labelSmall?.copyWith(
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.9,
+                color: cs.primary,
+              ),
             ),
-            _kv('Kullanılan Vo', '${result.adjustedMuzzleVelocityMps.toStringAsFixed(1)} m/s'),
-            _kv('TOF', '${result.timeOfFlightMs.toStringAsFixed(0)} ms'),
-            const Divider(height: 24),
-            _kv(
-              'Yükseliş klik',
-              '${result.clicks.toStringAsFixed(1)} ($clickValue ${clickUnit.label})',
+            const SizedBox(height: 6),
+            Text(
+              primary,
+              textAlign: TextAlign.center,
+              style: tt.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w900,
+                fontSize: 26,
+                height: 1.05,
+              ),
             ),
-            _kv(
-              'Yanal (saf) klik',
-              '${result.windClicks.toStringAsFixed(1)} ($clickValue ${clickUnit.label})',
-            ),
-            _kv(
-              'Öncü klik',
-              '${result.leadClicks.toStringAsFixed(1)} ($clickValue ${clickUnit.label})',
-            ),
-            _kv(
-              'Toplam yatay klik',
-              '${result.combinedLateralClicks.toStringAsFixed(1)} ($clickValue ${clickUnit.label})',
+            const SizedBox(height: 2),
+            Text(
+              unitLine,
+              textAlign: TextAlign.center,
+              style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
             ),
           ],
         ),
-      ),
-    );
-  }
+      );
+    }
 
-  Widget _kv(String k, String v) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(child: Text(k)),
-          Text(v, style: const TextStyle(fontWeight: FontWeight.bold)),
+    Widget detailRow(String k, String v) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 5,
+              child: Text(k, style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+            ),
+            Expanded(
+              flex: 4,
+              child: Text(
+                v,
+                textAlign: TextAlign.end,
+                style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            cs.surfaceContainerHighest.withValues(alpha: 0.95),
+            const Color(0xFF121814),
+          ],
+        ),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.42)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
         ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'SONUÇ',
+              style: tt.labelMedium?.copyWith(
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.1,
+                color: cs.primary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                heroCol(
+                  'DÜŞÜŞ',
+                  result.dropMil.toStringAsFixed(2),
+                  '${result.dropMoa.toStringAsFixed(2)} MOA',
+                ),
+                Container(
+                  width: 1,
+                  height: 72,
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  color: cs.outlineVariant.withValues(alpha: 0.6),
+                ),
+                heroCol(
+                  'YANAL',
+                  result.windMil.toStringAsFixed(2),
+                  '${result.windMoa.toStringAsFixed(2)} MOA',
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Öncü ${result.leadMil.toStringAsFixed(2)} mil · Toplam yatay ${result.combinedLateralMil.toStringAsFixed(2)} mil',
+              textAlign: TextAlign.center,
+              style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            ),
+            const Divider(height: 20),
+            detailRow('Klik (düşüş)', '${result.clicks.toStringAsFixed(1)} ($clickValue ${clickUnit.label})'),
+            detailRow('Klik (yan saf)', '${result.windClicks.toStringAsFixed(1)} ($clickValue ${clickUnit.label})'),
+            detailRow('Klik (öncü)', '${result.leadClicks.toStringAsFixed(1)} ($clickValue ${clickUnit.label})'),
+            detailRow('Klik (yatay top.)', '${result.combinedLateralClicks.toStringAsFixed(1)} ($clickValue ${clickUnit.label})'),
+            detailRow('Vo (kullanılan)', '${result.adjustedMuzzleVelocityMps.toStringAsFixed(1)} m/s'),
+            detailRow('TOF', '${result.timeOfFlightMs.toStringAsFixed(0)} ms'),
+          ],
+        ),
       ),
     );
   }

@@ -8,6 +8,7 @@ import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 
 import 'core/app_update/simple_update_channel.dart';
 import 'core/profile/weapon_profile_store.dart';
+import 'core/ui/field_app_theme.dart';
 import 'features/ballistics/presentation/ballistics_page.dart';
 import 'features/bluetooth/presentation/bluetooth_page.dart';
 import 'features/licensing/presentation/activation_gate.dart';
@@ -38,16 +39,7 @@ class BlueViperProApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'BlueViper',
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1B5E20),
-          brightness: Brightness.dark,
-        ),
-        scaffoldBackgroundColor: const Color(0xFF121212),
-        appBarTheme: const AppBarTheme(centerTitle: false, elevation: 0),
-      ),
+      theme: FieldAppTheme.dark(),
       home: const ActivationGate(child: _AppBootstrapShell()),
     );
   }
@@ -143,7 +135,7 @@ class _RootScaffoldState extends State<_RootScaffold> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Uygulamadan çıkılsın mı?'),
-        content: const Text('Blue Viper Pro kapatılacak.'),
+        content: const Text('BlueViper kapatılacak.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hayır')),
           FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Evet')),

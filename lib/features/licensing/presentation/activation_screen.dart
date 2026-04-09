@@ -148,9 +148,9 @@ class _ActivationScreenState extends State<ActivationScreen> {
               Icon(Icons.lock_outline, size: 56, color: Theme.of(context).colorScheme.primary),
               const SizedBox(height: 16),
               Text(
-                'Blue Viper Pro',
+                'BlueViper',
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                style: Theme.of(context).textTheme.headlineSmall,
               ),
               const SizedBox(height: 8),
               Text(
@@ -159,7 +159,10 @@ class _ActivationScreenState extends State<ActivationScreen> {
                         'onaylanır; başka cihazda aynı kod çalışmaz. İnternet gerekir.'
                     : 'Uygulamayı kullanmak için size iletilen 12 haneli aktivasyon kodunu girin.',
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade700),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      height: 1.45,
+                    ),
               ),
               if (remote)
                 Padding(
@@ -167,7 +170,10 @@ class _ActivationScreenState extends State<ActivationScreen> {
                   child: Text(
                     'Yönetici modu: uzaktan tek cihaz kilidi açık.',
                     textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.teal.shade800),
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Theme.of(context).colorScheme.secondary,
+                          fontWeight: FontWeight.w700,
+                        ),
                   ),
                 ),
               const SizedBox(height: 32),
@@ -211,7 +217,10 @@ class _ActivationScreenState extends State<ActivationScreen> {
                         'cihaza kilitler.'
                     : 'Bu sürüm çevrimdışı doğrulama kullanıyor: aynı kod birden fazla telefonda çalışabilir. '
                         'Tek cihaz için APK’yı ACTIVATION_API_URL ile derleyin (bkz. server/cloudflare-activation).',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.outline,
+                      height: 1.4,
+                    ),
                 textAlign: TextAlign.center,
               ),
             ],

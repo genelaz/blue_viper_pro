@@ -21,6 +21,8 @@ class MapCollabHubOverlay extends StatefulWidget {
     super.key,
     required this.service,
     required this.currentUserId,
+    this.inviteRoomNumber,
+    this.onReportTarget,
     required this.ownerSharesLiveLocation,
     required this.onOwnerSharesLiveChanged,
     required this.followRoomOwnerLocation,
@@ -29,6 +31,7 @@ class MapCollabHubOverlay extends StatefulWidget {
     required this.onMemberSharesLocationChanged,
     required this.onCreateRoom,
     required this.onJoinRoom,
+    this.onRenewRoomInvite,
     required this.onShareInvite,
     this.onOpenMemberManagementSheet,
     required this.onSelfRename,
@@ -39,6 +42,12 @@ class MapCollabHubOverlay extends StatefulWidget {
 
   final RealtimePttService service;
   final String currentUserId;
+
+  /// Davet metninde kullanılan okunabilir oda numarası (varsa).
+  final String? inviteRoomNumber;
+
+  /// Harita hedef bildirimi (koordinat sayfası).
+  final VoidCallback? onReportTarget;
 
   final bool ownerSharesLiveLocation;
   final ValueChanged<bool> onOwnerSharesLiveChanged;
@@ -52,6 +61,7 @@ class MapCollabHubOverlay extends StatefulWidget {
 
   final VoidCallback onCreateRoom;
   final VoidCallback onJoinRoom;
+  final VoidCallback? onRenewRoomInvite;
   final VoidCallback onShareInvite;
 
   /// Tam PTT / üye moderasyonu (harita detay sheet).
@@ -217,6 +227,7 @@ class _MapCollabHubOverlayState extends State<MapCollabHubOverlay> {
               children: [
                 _CollabPanelHeader(
                   sessionId: widget.service.session.sessionId,
+                  inviteRoomNumber: widget.inviteRoomNumber,
                   onShareInvite: widget.onShareInvite,
                   onCollapse: () => setState(() => _expanded = false),
                   onOpenMemberSheet: widget.onOpenMemberManagementSheet,
@@ -248,7 +259,9 @@ class _MapCollabHubOverlayState extends State<MapCollabHubOverlay> {
                       onMemberSharesLocationChanged: widget.onMemberSharesLocationChanged,
                       onCreateRoom: widget.onCreateRoom,
                       onJoinRoom: widget.onJoinRoom,
+                      onRenewRoomInvite: widget.onRenewRoomInvite,
                       onShareInvite: widget.onShareInvite,
+                      onReportTarget: widget.onReportTarget,
                       currentUserId: widget.currentUserId,
                       onSelfRename: widget.onSelfRename,
                       onPttTalk: widget.onPttTalk,
@@ -287,12 +300,14 @@ class _MapCollabHubOverlayState extends State<MapCollabHubOverlay> {
 class _CollabPanelHeader extends StatelessWidget {
   const _CollabPanelHeader({
     required this.sessionId,
+    this.inviteRoomNumber,
     required this.onShareInvite,
     required this.onCollapse,
     this.onOpenMemberSheet,
   });
 
   final String sessionId;
+  final String? inviteRoomNumber;
   final VoidCallback onShareInvite;
   final VoidCallback onCollapse;
   final VoidCallback? onOpenMemberSheet;
@@ -316,10 +331,22 @@ class _CollabPanelHeader extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Kod: $sessionId',
+                  inviteRoomNumber != null && inviteRoomNumber!.isNotEmpty
+                      ? 'Oda ismi: $inviteRoomNumber'
+                      : 'Yerel / genel oturum',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.72),
-                    fontSize: 11,
+                    color: Colors.white.withValues(alpha: 0.92),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  'Kimlik: $sessionId',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.55),
+                    fontSize: 10,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -362,7 +389,9 @@ class _RoomAndPttTab extends StatelessWidget {
     required this.onMemberSharesLocationChanged,
     required this.onCreateRoom,
     required this.onJoinRoom,
+    this.onRenewRoomInvite,
     required this.onShareInvite,
+    this.onReportTarget,
     required this.currentUserId,
     required this.onSelfRename,
     required this.onPttTalk,
@@ -381,7 +410,9 @@ class _RoomAndPttTab extends StatelessWidget {
   final ValueChanged<bool> onMemberSharesLocationChanged;
   final VoidCallback onCreateRoom;
   final VoidCallback onJoinRoom;
+  final VoidCallback? onRenewRoomInvite;
   final VoidCallback onShareInvite;
+  final VoidCallback? onReportTarget;
   final String currentUserId;
   final VoidCallback onSelfRename;
   final VoidCallback onPttTalk;
@@ -425,6 +456,38 @@ class _RoomAndPttTab extends StatelessWidget {
             ),
           ],
         ),
+        if (onRenewRoomInvite != null &&
+            isRoomOwner &&
+            !service.session.sessionId.startsWith('yerel-')) ...[
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: onRenewRoomInvite,
+            icon: const Icon(Icons.vpn_key_outlined, size: 18),
+            label: const Text('Davet bilgisini yenile'),
+          ),
+          Text(
+            'Yeni oda ismi/şifre; eski mesaj bağlantısı çalışmaz.',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.42), fontSize: 10),
+          ),
+        ],
+        if (onReportTarget != null &&
+            !service.session.sessionId.startsWith('yerel-')) ...[
+          const SizedBox(height: 12),
+          FilledButton.tonalIcon(
+            onPressed: onReportTarget,
+            icon: const Icon(Icons.crisis_alert_outlined, size: 20),
+            label: const Text('Hedef bildir'),
+          ),
+          Text(
+            'Koordinat sayfası açılır (UTM, MGRS, DD…). Bildirenin konumundan mesafe ve istikamet eklenir. '
+            'Diğer cihazlar için canlı iletimde sunucunun targetReport olayını iletmesi gerekir.',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.45),
+              fontSize: 10,
+              height: 1.35,
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
         if (isRoomOwner) ...[
           SwitchListTile(

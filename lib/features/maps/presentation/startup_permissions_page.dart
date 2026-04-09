@@ -65,16 +65,26 @@ class _StartupPermissionsPageState extends State<StartupPermissionsPage> {
               Icon(Icons.map_outlined, size: 56, color: Theme.of(context).colorScheme.primary),
               const SizedBox(height: 16),
               Text(
-                'Blue Viper Pro',
+                'BlueViper',
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'SAHA HAZIRLIK',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      letterSpacing: 1.2,
+                      fontWeight: FontWeight.w800,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
               ),
               const SizedBox(height: 16),
               Text(
-                'Harita, menzil ve balistik aktarımı için konum kullanılır. '
-                'İlk kurulumda izin vermeniz önerilir. Bluetooth isteğe bağlıdır (çevresel ölçüm).',
+                'Harita, menzil ve balistik için konum kullanılır. '
+                'İlk açılışta GPS izni önerilir. Bluetooth isteğe bağlıdır (Kestrel / çevre).',
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.5),
               ),
               const SizedBox(height: 20),
               DecoratedBox(
@@ -110,7 +120,15 @@ class _StartupPermissionsPageState extends State<StartupPermissionsPage> {
               ),
               if (_msg.isNotEmpty) ...[
                 const SizedBox(height: 16),
-                Text(_msg, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade800)),
+                Text(
+                  _msg,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.tertiary,
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
+                      ),
+                ),
               ],
               const Spacer(),
               FilledButton.icon(

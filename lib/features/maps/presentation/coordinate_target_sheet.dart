@@ -364,6 +364,7 @@ class _CoordinateTargetSheetState extends State<_CoordinateTargetSheet>
                     padding: const EdgeInsets.all(12),
                     children: [
                       DropdownButtonFormField<int>(
+                        key: ValueKey(_skMeridian),
                         initialValue: _skMeridian,
                         decoration: const InputDecoration(
                           labelText: 'Orta meridyen λ₀ (°)',
