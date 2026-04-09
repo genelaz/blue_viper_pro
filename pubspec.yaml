@@ -63,7 +63,9 @@ dependencies:
   archive: ^4.0.7
   flutter_map_mbtiles: ^1.0.4
   mbtiles: ^0.4.2
+  sqlite3: ^2.9.4
   sqlite3_flutter_libs: ^0.5.42
+  protobuf: ^6.0.0
   proj4dart: ^2.1.0
   meta: ^1.15.0
   package_info_plus: ^9.0.0
