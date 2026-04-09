@@ -68,6 +68,12 @@
 		</array>
 		<key>NSLocationWhenInUseUsageDescription</key>
 		<string>Harita üzerinde atıcı konumu, menzil ve balistik hesap için konum kullanılır.</string>
+		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+		<string>Arka planda GPS iz kaydı için «Her zaman» konum izni gerekir; yalnız iz açıkken kullanılır.</string>
+		<key>UIBackgroundModes</key>
+		<array>
+			<string>location</string>
+		</array>
 		<key>NSBluetoothAlwaysUsageDescription</key>
 		<string>Hava ölçer ve mesafe cihazlarına bağlanmak için Bluetooth gerekir.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
@@ -76,5 +82,18 @@
 		<true/>
 		<key>UIViewControllerBasedStatusBarAppearance</key>
 		<false/>
+		<key>CFBundleURLTypes</key>
+		<array>
+			<dict>
+				<key>CFBundleTypeRole</key>
+				<string>Editor</string>
+				<key>CFBundleURLName</key>
+				<string>com.blueviper.haritaoda</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>blueviper</string>
+				</array>
+			</dict>
+		</array>
 	</dict>
 </plist>

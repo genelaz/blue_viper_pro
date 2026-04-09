@@ -9,6 +9,38 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.3"
+  app_links:
+    dependency: "direct main"
+    description:
+      name: app_links
+      sha256: "3462d9defc61565fde4944858b59bec5be2b9d5b05f20aed190adb3ad08a7abc"
+      url: "https://pub.dev"
+    source: hosted
+    version: "7.0.0"
+  app_links_linux:
+    dependency: transitive
+    description:
+      name: app_links_linux
+      sha256: f5f7173a78609f3dfd4c2ff2c95bd559ab43c80a87dc6a095921d96c05688c81
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.3"
+  app_links_platform_interface:
+    dependency: transitive
+    description:
+      name: app_links_platform_interface
+      sha256: "05f5379577c513b534a29ddea68176a4d4802c46180ee8e2e966257158772a3f"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.2"
+  app_links_web:
+    dependency: transitive
+    description:
+      name: app_links_web
+      sha256: af060ed76183f9e2b87510a9480e56a5352b6c249778d07bd2c95fc35632a555
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.4"
   archive:
     dependency: "direct main"
     description:
@@ -177,6 +209,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.2.0"
+  dart_hydrologis_utils:
+    dependency: transitive
+    description:
+      name: dart_hydrologis_utils
+      sha256: "92f010c3bf2e3c0bd6f468a6c1bde205e5bcc78c1d77de26ca3595c7c939d858"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.8.3+1"
+  dart_jts:
+    dependency: "direct main"
+    description:
+      name: dart_jts
+      sha256: f9cb8b359346f453b5bfa2186fcd7fb8a7e6fbc7e076cba46898b44edd6fd8c7
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.0+1"
   dart_polylabel2:
     dependency: transitive
     description:
@@ -185,6 +233,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.0"
+  dart_shp:
+    dependency: "direct main"
+    description:
+      name: dart_shp
+      sha256: "2f032ce4e5a83cd9e6e7e9922840bb419c012de3b2976014c2fe00c3c6eabdbb"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.2.0+1"
   dbus:
     dependency: transitive
     description:
@@ -480,6 +536,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.2.8"
+  gtk:
+    dependency: transitive
+    description:
+      name: gtk
+      sha256: e8ce9ca4b1df106e4d72dad201d345ea1a036cc12c360f1a7d5a758f78ffa42c
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.1.0"
   hooks:
     dependency: transitive
     description:
@@ -944,6 +1008,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.0"
+  protobuf:
+    dependency: transitive
+    description:
+      name: protobuf
+      sha256: "75ec242d22e950bdcc79ee38dd520ce4ee0bc491d7fadc4ea47694604d22bf06"
+      url: "https://pub.dev"
+    source: hosted
+    version: "6.0.0"
   pub_semver:
     dependency: transitive
     description:
@@ -1213,6 +1285,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.0"
+  vector_tile:
+    dependency: "direct main"
+    description:
+      name: vector_tile
+      sha256: "43e32cd8e4a1ceede6ad61fbce1ac0ecc84380b6e6fbee52883f08774b12576f"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.0.0"
   vm_service:
     dependency: transitive
     description:
