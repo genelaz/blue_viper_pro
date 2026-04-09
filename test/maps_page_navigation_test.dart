@@ -46,7 +46,7 @@ void main() {
     expect(find.text('Çevrimiçi'), findsWidgets);
     // Katman seçimi (dropdown) - çökmeden ve state güncelleyerek
     expect(state.debugMapBase, isNotNull);
-    final baseDropdown = find.byWidgetPredicate((w) => w is DropdownButtonFormField);
+    final baseDropdown = find.byKey(const ValueKey('maps_layers_online_base_dropdown'));
     expect(baseDropdown, findsOneWidget);
     await tester.tap(baseDropdown);
     await tester.pumpAndSettle();
@@ -81,14 +81,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Koordinat ile işaret'), findsNothing);
 
-    // 3.2) Alt şeritteki GPX export butonu enabled (tıklamıyoruz)
-    final gpxIconBtnFinder = find.byWidgetPredicate(
-      (w) => w is IconButton && w.tooltip == 'GPX dışa aktar',
-      description: 'GPX dışa aktar IconButton',
-    );
-    expect(gpxIconBtnFinder, findsOneWidget);
-    final gpxIconBtn = tester.widget<IconButton>(gpxIconBtnFinder);
-    expect(gpxIconBtn.onPressed, isNotNull);
+    // 3.2) Alt şeritte dışa aktarma menüsü (GPX / KML), etkin (tıklamıyoruz)
+    final exportMenuFinder = find.byKey(const ValueKey('maps_bottom_export_menu_button'));
+    expect(exportMenuFinder, findsOneWidget);
+    final exportMenu = tester.widget<PopupMenuButton<String>>(exportMenuFinder);
+    expect(exportMenu.enabled, isTrue);
 
     // 4) TapMode değiştir → haritaya tıkla → İşaret 1 oluşur
     await tester.tap(find.byKey(const ValueKey('maps_bottom_tapmode_waypoint1_button')));

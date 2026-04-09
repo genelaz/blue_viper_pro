@@ -26,15 +26,15 @@ void main() {
     await tester.pump();
     expect(balistik, 1);
 
-    await tester.tap(find.text('Bluetooth'));
+    await tester.tap(find.text('Bluetooth ölçüm'));
     await tester.pump();
     expect(bluetooth, 1);
 
-    await tester.tap(find.text('Yedek'));
+    await tester.tap(find.text('Yedek ve geri yükle'));
     await tester.pump();
     expect(yedek, 1);
 
-    await tester.tap(find.text('Harita programına geç (Maps)'));
+    await tester.tap(find.text('Harita ve koordinat'));
     await tester.pump();
     expect(harita, 1);
   });

@@ -20,6 +20,6 @@ void main() {
     await tester.pumpAndSettle(const Duration(seconds: 6));
 
     expect(find.text('Balistik hesap'), findsOneWidget);
-    expect(find.text('Harita programına geç (Maps)'), findsOneWidget);
+    expect(find.text('Harita ve koordinat'), findsOneWidget);
   });
 }
