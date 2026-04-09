@@ -35,6 +35,7 @@ migrate_working_dir/
 
 # Yerel paylaşım için kopyalanan APK (büyük ikili)
 /share_apk/
+/BlueViperPro-*-release.apk
 
 # Aktivasyon — düz metin kod listesi (asla repoya eklemeyin)
 activation_codes_PRIVATE.txt
