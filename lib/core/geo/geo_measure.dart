@@ -21,6 +21,16 @@ double sphericalPolygonAreaM2(List<LatLng> ring) {
   return (area.abs() * r * r / 2);
 }
 
+/// Dış halka eksi delikler (her halka için [sphericalPolygonAreaM2]; basit yaklaşım).
+double sphericalPolygonWithHolesAreaM2(List<LatLng> outer, List<List<LatLng>> holes) {
+  if (outer.length < 3) return 0;
+  var a = sphericalPolygonAreaM2(outer);
+  for (final h in holes) {
+    if (h.length >= 3) a -= sphericalPolygonAreaM2(h);
+  }
+  return a < 0 ? 0 : a;
+}
+
 /// Çizgi boyunca örnek noktalar (DEM profili için).
 List<LatLng> samplePolyline(List<LatLng> vertices, {double stepMeters = 120}) {
   if (vertices.length < 2) return List<LatLng>.from(vertices);

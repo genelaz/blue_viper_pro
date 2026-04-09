@@ -1,29 +1,26 @@
 import 'package:latlong2/latlong.dart';
 import 'package:mbtiles/mbtiles.dart';
 
+import 'mbtiles_basemap_probe.dart';
+import 'vector_mbtiles_policy.dart';
+
 /// Raster MBTiles (png/jpg/webp) uygunluğu; vektör pbf/mvt reddi.
 class MbtilesRasterCheck {
   static Future<({bool ok, String? message, MbTilesMetadata? meta})> validateFile(
     String mbtilesPath,
   ) async {
-    final db = MbTiles(mbtilesPath: mbtilesPath);
-    try {
-      final meta = db.getMetadata();
-      final f = meta.format.toLowerCase().trim();
-      if (f == 'pbf' || f == 'mvt' || f.contains('protobuf')) {
-        return (
-          ok: false,
-          message:
-              'Bu MBTiles vektör (pbf/mvt). Şimdilik yalnızca png/jpg/webp raster paketleri desteklenir.',
-          meta: null,
-        );
-      }
-      return (ok: true, message: null, meta: meta);
-    } catch (e) {
-      return (ok: false, message: 'MBTiles okunamadı: $e', meta: null);
-    } finally {
-      db.dispose();
+    final a = await MbtilesBasemapProbe.analyze(mbtilesPath);
+    if (!a.ok) {
+      return (ok: false, message: a.message ?? 'MBTiles okunamadı', meta: null);
     }
+    if (a.kind == MbtilesBasemapKind.vector) {
+      return (
+        ok: false,
+        message: VectorMbtilesPolicy.shortUserMessage,
+        meta: null,
+      );
+    }
+    return (ok: true, message: null, meta: a.meta);
   }
 
   /// metadata ile haritayı ortalamak için merkez / zoom.
