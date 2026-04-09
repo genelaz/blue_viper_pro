@@ -1,13 +1,14 @@
 import 'package:blue_viper_pro/core/maps/mbtiles_vector_overlay_builder.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:vector_tile/vector_tile.dart';
 
 void main() {
   test('MbtilesVectorMapLabel and overlay data carry labels list', () {
     final label = MbtilesVectorMapLabel(point: const LatLng(1, 2), text: 'X');
     final data = MbtilesVectorOverlayData(
-      lineSegments: const [],
-      polygonPatches: const [],
+      lineSegments: const <MbtilesVectorStyledLine>[],
+      polygonPatches: const <MbtilesVectorStyledPolygonPatch>[],
       points: const [],
       labels: [label],
     );
@@ -47,5 +48,24 @@ void main() {
     final b = MbtilesVectorOverlayBuilder.labelDedupeKeyTest(p, 'Istanbul');
     expect(a, b);
     expect(a, isNot(MbtilesVectorOverlayBuilder.labelDedupeKeyTest(p, 'Izmir')));
+  });
+
+  test('preview line style: motorway thicker and distinct from path', () {
+    final motorway = MbtilesVectorOverlayBuilder.previewLineStyleForTest(
+      'transportation',
+      {'class': VectorTileValue(stringValue: 'motorway')},
+    );
+    final path = MbtilesVectorOverlayBuilder.previewLineStyleForTest(
+      'transportation',
+      {'class': VectorTileValue(stringValue: 'path')},
+    );
+    expect(motorway.strokeWidth, greaterThan(path.strokeWidth));
+    expect(motorway.strokeArgb, isNot(path.strokeArgb));
+  });
+
+  test('preview polygon style: water vs default fill', () {
+    final water = MbtilesVectorOverlayBuilder.previewPolygonStyleForTest('water', null);
+    final def = MbtilesVectorOverlayBuilder.previewPolygonStyleForTest('unknown_layer_xyz', null);
+    expect(water.fillArgb, isNot(def.fillArgb));
   });
 }

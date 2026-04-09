@@ -28,7 +28,7 @@ Future<void> showMapDataPackagesSheet(BuildContext context) {
               Text('Harita veri kaynakları', style: Theme.of(ctx).textTheme.titleLarge),
               const SizedBox(height: 8),
               Text(
-                'Mağaza entegrasyonu yok; aşağıdaki sitelerden veya masaüstü araçlarla MBTiles üretip uygulamada «.mbtiles» veya GPX/KML/KMZ ile açabilirsiniz. Raster paketler tam çevrimdışı altlık; vektör (`pbf`) paketlerde üstte çevrimiçi raster katman + MVT geometri önizlemesi (stil/etiket yok).',
+                'Mağaza entegrasyonu yok; aşağıdaki sitelerden veya masaüstü araçlarla MBTiles üretip uygulamada «.mbtiles» veya GPX/KML/KMZ ile açabilirsiniz. Raster paketler tam çevrimdışı altlık. Vektör (`pbf`) paketlerde: varsayılan olarak üstte çevrimiçi raster + yerel MVT önizleme motoru; veya harita ayrıntılarından «MapLibre motoru (tam stil)» açılarak OpenFreeMap Liberty tabanlı stil ve native MapLibre işleme (iOS/Android); masaüstünde deneysel WebView — ayrıntı ve sınırlar için Referans uygulamalar → Paket 3.',
                 style: Theme.of(ctx).textTheme.bodySmall,
               ),
               const SizedBox(height: 16),
@@ -60,7 +60,7 @@ Future<void> showMapDataPackagesSheet(BuildContext context) {
               Text('Yol haritası (vektör)', style: Theme.of(ctx).textTheme.titleSmall),
               const SizedBox(height: 6),
               Text(
-                'Vektör MBTiles (`format=pbf`): MVT çözülür; çizgi, alan ve nokta önizlemesi haritada çizilir (MapLibre / Style Spec / yazılı etiket yok). Tam ürün haritası için «Referans uygulamalar» sayfasındaki Paket 3 (kalan iş).',
+                'Vektör MBTiles (`format=pbf`): İki yol — (1) Yerleşik önizleme: geometri + sınırlı etiket. (2) MapLibre motoru açıksa: tam stil, sprite ve glif (mobilde native SDK). Paket 3 yol haritası: kalan sınırlar (ör. MapLibre yolunda GeoPDF/hillshade, masaüstü WebView parity) «Referans uygulamalar» sayfasında.',
                 style: Theme.of(ctx).textTheme.bodySmall?.copyWith(height: 1.4),
               ),
               const SizedBox(height: 16),
@@ -73,7 +73,7 @@ Future<void> showMapDataPackagesSheet(BuildContext context) {
                 '• `NetworkLink`: yalnızca HTTPS hedefleri, tekrarlayan adres tek istek; yanıt KML veya KMZ olabilir; süre ve boyut sınırlı (web’de CORS kısıtı olabilir).\n'
                 '• KML çizgi rengi: `Style` / `StyleMap` (`normal` çifti) içindeki `LineStyle` / `color` (aabbggrr); haritada çoklu renkli çizgiler; rota noktası eklendiğinde veya rota temizlendiğinde bu katman sıfırlanır.\n'
                 '• KMZ: zip içindeki tüm `.kml` dosyaları birleştirilerek okunur.\n'
-                '• NTv2: haritada `.gsb` seçerek (isteğe bağlı) datum kaydırması uygulanır; dosyayı siz sağlarsınız.\n'
+                '• NTv2: `.gsb` seçerek kaymalı gösterim; ızgara WGS84 kapsamı HUD’da özetlenir, konum dışındayken kayma uygulanmaz.\n'
                 '• MBTiles: raster (`png`/`jpg`/`webp`) tam çevrimdışı karolar; vektör (`format=pbf` / gzip MVT) raster karosu değil — geometri önizlemesi ve isteğe bağlı çevrimiçi üst katman.',
                 style: Theme.of(ctx).textTheme.bodySmall?.copyWith(height: 1.4),
               ),

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:coordinate_converter/coordinate_converter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -7,27 +9,29 @@ import '../../../core/geo/geo_formatters.dart';
 import '../../../core/geo/sk42_turkey_grid.dart';
 import '../../../core/geo/wgs84_utm_epsg.dart';
 
-/// Yarım ekran: harita + DD / MGRS / UTM girişi ile işaret noktası seçimi.
+const Distance _earthDistance = Distance();
+
+/// Tam ekran sayfa: harita + DD / MGRS / UTM / SK-42 / mesafe–azimut ile hedef seçimi.
 Future<void> showCoordinateTargetPickerSheet(
   BuildContext context, {
   required LatLng initialCenter,
   required void Function(LatLng p) onApply,
   TileProvider? tileProvider,
 }) async {
-  await showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    builder: (ctx) => _CoordinateTargetSheet(
-      initialCenter: initialCenter,
-      onApply: onApply,
-      tileProvider: tileProvider,
+  await Navigator.of(context).push<void>(
+    MaterialPageRoute<void>(
+      builder: (ctx) => CoordinateTargetPage(
+        initialCenter: initialCenter,
+        onApply: onApply,
+        tileProvider: tileProvider,
+      ),
     ),
   );
 }
 
-class _CoordinateTargetSheet extends StatefulWidget {
-  const _CoordinateTargetSheet({
+class CoordinateTargetPage extends StatefulWidget {
+  const CoordinateTargetPage({
+    super.key,
     required this.initialCenter,
     required this.onApply,
     this.tileProvider,
@@ -38,10 +42,10 @@ class _CoordinateTargetSheet extends StatefulWidget {
   final TileProvider? tileProvider;
 
   @override
-  State<_CoordinateTargetSheet> createState() => _CoordinateTargetSheetState();
+  State<CoordinateTargetPage> createState() => _CoordinateTargetPageState();
 }
 
-class _CoordinateTargetSheetState extends State<_CoordinateTargetSheet>
+class _CoordinateTargetPageState extends State<CoordinateTargetPage>
     with SingleTickerProviderStateMixin {
   late final MapController _mapController;
   late LatLng _picked;
@@ -59,6 +63,10 @@ class _CoordinateTargetSheetState extends State<_CoordinateTargetSheet>
   final _skNorthCtrl = TextEditingController();
   int _skMeridian = 33;
 
+  final _polarDistCtrl = TextEditingController();
+  final _polarAzimuthCtrl = TextEditingController();
+  final _polarMilCtrl = TextEditingController();
+
   String? _error;
 
   @override
@@ -66,8 +74,9 @@ class _CoordinateTargetSheetState extends State<_CoordinateTargetSheet>
     super.initState();
     _mapController = MapController();
     _picked = widget.initialCenter;
-    _tabs = TabController(length: 4, vsync: this);
+    _tabs = TabController(length: 5, vsync: this);
     _syncFieldsFromPoint();
+    _polarDistCtrl.text = '100';
   }
 
   void _syncFieldsFromPoint() {
@@ -101,6 +110,25 @@ class _CoordinateTargetSheetState extends State<_CoordinateTargetSheet>
     _skNorthCtrl.text = sk.$2.toStringAsFixed(1);
   }
 
+  double _natoMilFromAzimuthDeg(double azimuthDeg) => azimuthDeg * (6400.0 / 360.0);
+
+  double _azimuthDegFromNatoMil(double mil) => (mil % 6400.0) * (360.0 / 6400.0);
+
+  void _onAzimuthChanged(String s) {
+    final v = double.tryParse(s.replaceAll(',', '.'));
+    if (v == null) return;
+    var az = v % 360.0;
+    if (az < 0) az += 360.0;
+    _polarMilCtrl.text = _natoMilFromAzimuthDeg(az).toStringAsFixed(2);
+  }
+
+  void _onMilChanged(String s) {
+    final v = double.tryParse(s.replaceAll(',', '.'));
+    if (v == null) return;
+    var az = _azimuthDegFromNatoMil(v);
+    _polarAzimuthCtrl.text = az.toStringAsFixed(2);
+  }
+
   @override
   void dispose() {
     _tabs.dispose();
@@ -112,6 +140,9 @@ class _CoordinateTargetSheetState extends State<_CoordinateTargetSheet>
     _utmNorthCtrl.dispose();
     _skEastCtrl.dispose();
     _skNorthCtrl.dispose();
+    _polarDistCtrl.dispose();
+    _polarAzimuthCtrl.dispose();
+    _polarMilCtrl.dispose();
     super.dispose();
   }
 
@@ -198,73 +229,132 @@ class _CoordinateTargetSheetState extends State<_CoordinateTargetSheet>
     }
   }
 
+  /// Turuncu pim = başlangıç; girilen mesafe ve azimut (veya mil) ile büyük daire üzerinde yeni konum.
+  void _applyPolar() {
+    final d = double.tryParse(_polarDistCtrl.text.replaceAll(',', '.'));
+    if (d == null || !d.isFinite || d <= 0 || d > 2e6) {
+      setState(() => _error = 'Mesafe (m) 0–2 000 000 aralığında olmalı.');
+      return;
+    }
+    final milStr = _polarMilCtrl.text.trim();
+    final azStr = _polarAzimuthCtrl.text.trim();
+    double? azDeg;
+    if (milStr.isNotEmpty) {
+      final mil = double.tryParse(milStr.replaceAll(',', '.'));
+      if (mil == null || !mil.isFinite) {
+        setState(() => _error = 'Milyem geçersiz.');
+        return;
+      }
+      azDeg = _azimuthDegFromNatoMil(mil);
+    } else if (azStr.isNotEmpty) {
+      final az = double.tryParse(azStr.replaceAll(',', '.'));
+      if (az == null || !az.isFinite) {
+        setState(() => _error = 'Azimut (°) geçersiz.');
+        return;
+      }
+      azDeg = az % 360.0;
+      if (azDeg < 0) azDeg += 360.0;
+    } else {
+      setState(() => _error = 'Azimut (°) veya NATO milyem girin.');
+      return;
+    }
+    try {
+      final dest = _earthDistance.offset(_picked, d, azDeg);
+      setState(() {
+        _picked = dest;
+        _error = null;
+      });
+      _mapController.move(_picked, math.max(12.0, _mapController.camera.zoom));
+      _syncFieldsFromPoint();
+      _polarMilCtrl.text = _natoMilFromAzimuthDeg(azDeg).toStringAsFixed(2);
+      _polarAzimuthCtrl.text = azDeg.toStringAsFixed(2);
+    } catch (err) {
+      setState(() => _error = 'Konum hesabı başarısız: $err');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.58,
-      minChildSize: 0.35,
-      maxChildSize: 0.92,
-      builder: (ctx, scrollCtrl) {
-        return Column(
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Koordinat ile işaret'),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: SafeArea(
+        child: Column(
           children: [
-            const SizedBox(height: 8),
-            Text('Koordinat ile işaret', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 4),
-            Text(
-              'Haritaya dokunun veya DD / MGRS / UTM / SK-42 TM girin.',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+              child: Text(
+                'Haritaya dokunun veya sekmeden DD / MGRS / UTM / SK-42 girin. '
+                '«Metre · ° · mil» sekmesinde turuncu pimi başlangıç alıp ileri konumu hesaplayın.',
+                style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+              ),
             ),
-            Flexible(
+            Expanded(
               flex: 4,
-              child: FlutterMap(
-                mapController: _mapController,
-                options: MapOptions(
-                  initialCenter: _picked,
-                  initialZoom: 13,
-                  onTap: (_, p) {
-                    setState(() {
-                      _picked = p;
-                      _error = null;
-                    });
-                    _syncFieldsFromPoint();
-                  },
-                ),
-                children: [
-                  TileLayer(
-                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'com.blueviperpro.app',
-                    tileProvider: widget.tileProvider ?? NetworkTileProvider(),
-                  ),
-                  MarkerLayer(
-                    markers: [
-                      Marker(
-                        point: _picked,
-                        width: 40,
-                        height: 40,
-                        child: const Icon(Icons.place, color: Colors.deepOrange, size: 36),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.all(Radius.circular(10)),
+                  child: FlutterMap(
+                    mapController: _mapController,
+                    options: MapOptions(
+                      initialCenter: _picked,
+                      initialZoom: 13,
+                      onTap: (_, p) {
+                        setState(() {
+                          _picked = p;
+                          _error = null;
+                        });
+                        _syncFieldsFromPoint();
+                      },
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.blueviperpro.app',
+                        tileProvider: widget.tileProvider ?? NetworkTileProvider(),
+                      ),
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: _picked,
+                            width: 40,
+                            height: 40,
+                            child: const Icon(Icons.place, color: Colors.deepOrange, size: 36),
+                          ),
+                        ],
                       ),
                     ],
                   ),
+                ),
+              ),
+            ),
+            Material(
+              color: Theme.of(context).colorScheme.surface,
+              child: TabBar(
+                controller: _tabs,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                tabs: const [
+                  Tab(text: 'DD'),
+                  Tab(text: 'MGRS'),
+                  Tab(text: 'UTM'),
+                  Tab(text: 'SK-42'),
+                  Tab(text: 'm · ° · mil'),
                 ],
               ),
             ),
-            TabBar(
-              controller: _tabs,
-              isScrollable: true,
-              tabs: const [
-                Tab(text: 'DD'),
-                Tab(text: 'MGRS'),
-                Tab(text: 'UTM'),
-                Tab(text: 'SK-42'),
-              ],
-            ),
             Expanded(
+              flex: 4,
               child: TabBarView(
                 controller: _tabs,
                 children: [
                   ListView(
-                    controller: scrollCtrl,
                     padding: const EdgeInsets.all(12),
                     children: [
                       TextField(
@@ -283,7 +373,6 @@ class _CoordinateTargetSheetState extends State<_CoordinateTargetSheet>
                     ],
                   ),
                   ListView(
-                    controller: scrollCtrl,
                     padding: const EdgeInsets.all(12),
                     children: [
                       TextField(
@@ -299,7 +388,6 @@ class _CoordinateTargetSheetState extends State<_CoordinateTargetSheet>
                     ],
                   ),
                   ListView(
-                    controller: scrollCtrl,
                     padding: const EdgeInsets.all(12),
                     children: [
                       TextField(
@@ -360,7 +448,6 @@ class _CoordinateTargetSheetState extends State<_CoordinateTargetSheet>
                     ],
                   ),
                   ListView(
-                    controller: scrollCtrl,
                     padding: const EdgeInsets.all(12),
                     children: [
                       DropdownButtonFormField<int>(
@@ -411,6 +498,52 @@ class _CoordinateTargetSheetState extends State<_CoordinateTargetSheet>
                       FilledButton(onPressed: _applySk42, child: const Text('Haritaya uygula')),
                     ],
                   ),
+                  ListView(
+                    padding: const EdgeInsets.all(12),
+                    children: [
+                      Text(
+                        'Başlangıç: haritadaki turuncu pim (dokunun veya üstteki sekmeden girin).',
+                        style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _polarDistCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Mesafe (m)',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _polarAzimuthCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Azimut — 360° (Kuzey=0°, Doğu=90°, saat yönü)',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        onChanged: _onAzimuthChanged,
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _polarMilCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'NATO milyem (6400 = tam tur) — isteğe bağlı',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        onChanged: _onMilChanged,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Önce azimut, sonra mil doldurursanız mil baskın sayılır. '
+                        'Her iki alan da doluysa milyem kullanılır.',
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                      ),
+                      const SizedBox(height: 8),
+                      FilledButton(onPressed: _applyPolar, child: const Text('İleri konumu hesapla')),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -420,30 +553,29 @@ class _CoordinateTargetSheetState extends State<_CoordinateTargetSheet>
                 child: Text(_error!, style: const TextStyle(color: Colors.red)),
               ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                alignment: WrapAlignment.end,
-                crossAxisAlignment: WrapCrossAlignment.center,
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+              child: Row(
                 children: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),
                     child: const Text('İptal'),
                   ),
-                  FilledButton(
-                    onPressed: () {
-                      widget.onApply(_picked);
-                      Navigator.pop(context);
-                    },
-                    child: const Text('Ana haritaya İşaret 1 olarak aktar'),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () {
+                        widget.onApply(_picked);
+                        Navigator.pop(context);
+                      },
+                      child: const Text('Ana haritaya İşaret 1 olarak aktar'),
+                    ),
                   ),
                 ],
               ),
             ),
           ],
-        );
-      },
+        ),
+      ),
     );
   }
 }

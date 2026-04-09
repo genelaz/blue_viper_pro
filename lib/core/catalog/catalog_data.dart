@@ -49,6 +49,18 @@ class WeaponType {
   final String? role;
   /// Örnek: TR, NATO, US, OTHER
   final String? region;
+  /// Namlu uzunluğu (in); mühimmat bandı seçimine yaklaşım için.
+  final double? barrelLengthInches;
+  /// Üretici / seri / dipçik vb. serbest not.
+  final String? notes;
+  /// Forma yazılacak varsayılan sıfırlama menzili (m).
+  final double? defaultZeroRangeM;
+  /// Forma yazılacak varsayılan nişan yüksekliği (cm).
+  final double? defaultSightHeightCm;
+  /// Namlu hatve (in/tur); forma ile senkron.
+  final double? twistInchesPerTurn;
+  /// Sağ el twist; null = forma varsayılanına dokunma.
+  final bool? twistRightHanded;
 
   const WeaponType({
     required this.id,
@@ -56,6 +68,12 @@ class WeaponType {
     required this.caliber,
     this.role,
     this.region,
+    this.barrelLengthInches,
+    this.notes,
+    this.defaultZeroRangeM,
+    this.defaultSightHeightCm,
+    this.twistInchesPerTurn,
+    this.twistRightHanded,
   });
 
   Map<String, dynamic> toMap() => {
@@ -64,6 +82,12 @@ class WeaponType {
         'caliber': caliber,
         if (role != null) 'role': role,
         if (region != null) 'region': region,
+        if (barrelLengthInches != null) 'barrelLengthInches': barrelLengthInches,
+        if (notes != null && notes!.isNotEmpty) 'notes': notes,
+        if (defaultZeroRangeM != null) 'defaultZeroRangeM': defaultZeroRangeM,
+        if (defaultSightHeightCm != null) 'defaultSightHeightCm': defaultSightHeightCm,
+        if (twistInchesPerTurn != null) 'twistInchesPerTurn': twistInchesPerTurn,
+        if (twistRightHanded != null) 'twistRightHanded': twistRightHanded,
       };
 
   factory WeaponType.fromMap(Map<String, dynamic> map) => WeaponType(
@@ -72,6 +96,12 @@ class WeaponType {
         caliber: map['caliber'] as String,
         role: map['role'] as String?,
         region: map['region'] as String?,
+        barrelLengthInches: (map['barrelLengthInches'] as num?)?.toDouble(),
+        notes: map['notes'] as String?,
+        defaultZeroRangeM: (map['defaultZeroRangeM'] as num?)?.toDouble(),
+        defaultSightHeightCm: (map['defaultSightHeightCm'] as num?)?.toDouble(),
+        twistInchesPerTurn: (map['twistInchesPerTurn'] as num?)?.toDouble(),
+        twistRightHanded: map['twistRightHanded'] is bool ? map['twistRightHanded'] as bool : null,
       );
 }
 
@@ -80,12 +110,24 @@ class ScopeType {
   final String name;
   final ClickUnit clickUnit;
   final double clickValue;
+  /// Değişken zoom alt sınırı (×), isteğe bağlı.
+  final double? minMagnification;
+  /// Değişken zoom üst sınırı (×), isteğe bağlı.
+  final double? maxMagnification;
+  /// SFP retikül doğum büyütmesi (×), isteğe bağlı.
+  final double? referenceMagnification;
+  /// Serbest metin (objektif çap, tüp çapı, üretici kodu vb.).
+  final String? notes;
 
   const ScopeType({
     required this.id,
     required this.name,
     required this.clickUnit,
     required this.clickValue,
+    this.minMagnification,
+    this.maxMagnification,
+    this.referenceMagnification,
+    this.notes,
   });
 
   Map<String, dynamic> toMap() => {
@@ -93,6 +135,10 @@ class ScopeType {
         'name': name,
         'clickUnit': clickUnit.name,
         'clickValue': clickValue,
+        if (minMagnification != null) 'minMagnification': minMagnification,
+        if (maxMagnification != null) 'maxMagnification': maxMagnification,
+        if (referenceMagnification != null) 'referenceMagnification': referenceMagnification,
+        if (notes != null && notes!.isNotEmpty) 'notes': notes,
       };
 
   factory ScopeType.fromMap(Map<String, dynamic> map) => ScopeType(
@@ -102,7 +148,11 @@ class ScopeType {
           (e) => e.name == map['clickUnit'],
           orElse: () => ClickUnit.mil,
         ),
-        clickValue: (map['clickValue'] as num).toDouble(),
+        clickValue: (map['clickValue'] as num?)?.toDouble() ?? 0.1,
+        minMagnification: (map['minMagnification'] as num?)?.toDouble(),
+        maxMagnification: (map['maxMagnification'] as num?)?.toDouble(),
+        referenceMagnification: (map['referenceMagnification'] as num?)?.toDouble(),
+        notes: map['notes'] as String?,
       );
 }
 
@@ -911,6 +961,16 @@ class CatalogData {
       ),
     ),
     AmmoType(
+      id: 'lapua_308_170',
+      name: 'Lapua .308 Win 170gr (genel G1 — saha ile dogrulayin)',
+      caliber: '.308 Win',
+      variants: ammoVariantsThreeBarrels(
+        mv16: 718, bc16: 0.488,
+        mv20: 762, bc20: 0.488,
+        mv24: 798, bc24: 0.488,
+      ),
+    ),
+    AmmoType(
       id: 'lapua_65_123_scenar',
       name: 'Lapua 6.5 CM 123gr Scenar',
       caliber: '6.5 CM',
@@ -948,6 +1008,26 @@ class CatalogData {
         mv16: 830, bc16: 0.675,
         mv20: 870, bc20: 0.675,
         mv24: 905, bc24: 0.675,
+      ),
+    ),
+    AmmoType(
+      id: 'lapua_338_250_b408_fmj_bt',
+      name: 'Lapua .338 LM 250gr B408 FMJ BT (genel G1 — tip ile dogrulayin)',
+      caliber: '.338 LM',
+      variants: ammoVariantsThreeBarrels(
+        mv16: 822, bc16: 0.630,
+        mv20: 862, bc20: 0.630,
+        mv24: 895, bc24: 0.630,
+      ),
+    ),
+    AmmoType(
+      id: 'lapua_338_ap408_fmj_bt',
+      name: 'Lapua .338 LM AP408 FMJ BT (zirh delici tip — G1 tahmini)',
+      caliber: '.338 LM',
+      variants: ammoVariantsThreeBarrels(
+        mv16: 808, bc16: 0.565,
+        mv20: 848, bc20: 0.565,
+        mv24: 878, bc24: 0.565,
       ),
     ),
     AmmoType(
@@ -1110,6 +1190,36 @@ class CatalogData {
         mv16: 750, bc16: 0.475,
         mv20: 795, bc20: 0.475,
         mv24: 830, bc24: 0.475,
+      ),
+    ),
+    AmmoType(
+      id: 'norma_308_190_diamond',
+      name: 'Norma .308 Win 190gr Diamond Line (genel G1 — katalog ile dogrulayin)',
+      caliber: '.308 Win',
+      variants: ammoVariantsThreeBarrels(
+        mv16: 688, bc16: 0.545,
+        mv20: 735, bc20: 0.545,
+        mv24: 772, bc24: 0.545,
+      ),
+    ),
+    AmmoType(
+      id: 'pramtec_1270_750',
+      name: 'Pramtec / 12.7×99 750gr (BMG sinifi — G1 tahmini)',
+      caliber: '12.7x99',
+      variants: ammoVariantsThreeBarrels(
+        mv16: 760, bc16: 1.050,
+        mv20: 795, bc20: 1.050,
+        mv24: 825, bc24: 1.050,
+      ),
+    ),
+    AmmoType(
+      id: 'hornady_1270_750_amax',
+      name: 'Hornady .50 BMG 750gr A-MAX (12.7×99 — G1 tahmini)',
+      caliber: '12.7x99',
+      variants: ammoVariantsThreeBarrels(
+        mv16: 765, bc16: 1.080,
+        mv20: 802, bc20: 1.080,
+        mv24: 832, bc24: 1.080,
       ),
     ),
     AmmoType(

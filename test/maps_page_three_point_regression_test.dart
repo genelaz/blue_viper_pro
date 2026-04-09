@@ -9,6 +9,12 @@ void main() {
 
     final state = mapsPageState(tester);
 
+    await tester.tap(find.byKey(const ValueKey('maps_bottom_tapmode_waypoint1_button')));
+    await tester.pumpAndSettle();
+    state.debugHandleMapTap(const LatLng(39.900, 32.800));
+    await tester.pumpAndSettle();
+    expect(state.debugWaypoint1, isNotNull);
+
     await tester.tap(find.byKey(const ValueKey('maps_bottom_tapmode_waypoint2_button')));
     await tester.pumpAndSettle();
 

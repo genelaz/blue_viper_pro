@@ -154,6 +154,43 @@ class BallisticsSolveInput {
       targetCrossTrackMps: targetCrossTrackMps,
     );
   }
+
+  /// [this] balistik profili (Vo, BC, nişan/sıfır, barut eğrisi, spin verileri) korur;
+  /// menzil, hedef geometrisi, atmosfer, rüzgâr ve Coriolis/azimut gibi atış koşullarını [shot]tan alır.
+  BallisticsSolveInput withShotConditionsFrom(BallisticsSolveInput shot) {
+    return BallisticsSolveInput(
+      distanceMeters: shot.distanceMeters,
+      muzzleVelocityMps: muzzleVelocityMps,
+      bcKind: bcKind,
+      ballisticCoefficient: ballisticCoefficient,
+      temperatureC: shot.temperatureC,
+      pressureHpa: shot.pressureHpa,
+      relativeHumidityPercent: shot.relativeHumidityPercent,
+      densityAltitudeMeters: shot.densityAltitudeMeters,
+      targetElevationDeltaMeters: shot.targetElevationDeltaMeters,
+      slopeAngleDegrees: shot.slopeAngleDegrees,
+      sightHeightMeters: sightHeightMeters,
+      zeroRangeMeters: zeroRangeMeters,
+      crossWindMps: shot.crossWindMps,
+      enableCoriolis: shot.enableCoriolis,
+      latitudeDegrees: shot.latitudeDegrees,
+      azimuthFromNorthDegrees: shot.azimuthFromNorthDegrees,
+      enableSpinDrift: enableSpinDrift,
+      riflingTwistSign: riflingTwistSign,
+      bulletMassGrains: bulletMassGrains,
+      bulletCaliberInches: bulletCaliberInches,
+      twistInchesPerTurn: twistInchesPerTurn,
+      enableAerodynamicJump: shot.enableAerodynamicJump,
+      clickUnit: shot.clickUnit,
+      clickValue: shot.clickValue,
+      powderTempVelocityPairs: powderTempVelocityPairs,
+      powderTemperatureC: shot.powderTemperatureC,
+      bcMachSegments: bcMachSegments,
+      customDragMachNodes: customDragMachNodes,
+      customDragI: customDragI,
+      targetCrossTrackMps: shot.targetCrossTrackMps,
+    );
+  }
 }
 
 class BallisticsSolveOutput {
@@ -406,6 +443,61 @@ class BallisticsEngine {
           muzzleVelocityMps: template.muzzleVelocityMps,
           bcKind: template.bcKind,
           ballisticCoefficient: b,
+          temperatureC: template.temperatureC,
+          pressureHpa: template.pressureHpa,
+          relativeHumidityPercent: template.relativeHumidityPercent,
+          densityAltitudeMeters: template.densityAltitudeMeters,
+          targetElevationDeltaMeters: template.targetElevationDeltaMeters,
+          slopeAngleDegrees: template.slopeAngleDegrees,
+          sightHeightMeters: template.sightHeightMeters,
+          zeroRangeMeters: template.zeroRangeMeters,
+          crossWindMps: template.crossWindMps,
+          enableCoriolis: template.enableCoriolis,
+          latitudeDegrees: template.latitudeDegrees,
+          azimuthFromNorthDegrees: template.azimuthFromNorthDegrees,
+          enableSpinDrift: template.enableSpinDrift,
+          riflingTwistSign: template.riflingTwistSign,
+          bulletMassGrains: template.bulletMassGrains,
+          bulletCaliberInches: template.bulletCaliberInches,
+          twistInchesPerTurn: template.twistInchesPerTurn,
+          enableAerodynamicJump: template.enableAerodynamicJump,
+          clickUnit: template.clickUnit,
+          clickValue: template.clickValue,
+          powderTempVelocityPairs: template.powderTempVelocityPairs,
+          powderTemperatureC: template.powderTemperatureC,
+          bcMachSegments: template.bcMachSegments,
+          customDragMachNodes: template.customDragMachNodes,
+          customDragI: template.customDragI,
+          targetCrossTrackMps: template.targetCrossTrackMps,
+        ));
+    for (var k = 0; k < iterations; k++) {
+      final mid = (lo + hi) * 0.5;
+      final out = run(mid);
+      if (out.dropMil > observedDropMil) {
+        lo = mid;
+      } else {
+        hi = mid;
+      }
+    }
+    return (lo + hi) * 0.5;
+  }
+
+  /// Gözlenen yükseliş düzeltmesine (mil) uyan namlu çıkış hızı (m/s).
+  static double? trueMuzzleVelocityForObservedDrop({
+    required BallisticsSolveInput template,
+    required double observedDropMil,
+    double mvMinMps = 120,
+    double mvMaxMps = 1600,
+    int iterations = 24,
+  }) {
+    if (mvMaxMps <= mvMinMps || iterations < 4) return null;
+    var lo = mvMinMps;
+    var hi = mvMaxMps;
+    BallisticsSolveOutput run(double mv) => solve(BallisticsSolveInput(
+          distanceMeters: template.distanceMeters,
+          muzzleVelocityMps: mv,
+          bcKind: template.bcKind,
+          ballisticCoefficient: template.ballisticCoefficient,
           temperatureC: template.temperatureC,
           pressureHpa: template.pressureHpa,
           relativeHumidityPercent: template.relativeHumidityPercent,

@@ -31,7 +31,7 @@ void main() {
   test('parseKmlPlacemarksWithNetworkLinks equals sync when no network hrefs', () async {
     final kml = buildKmlMapExport(
       documentName: 'L',
-      waypoints: [('P', LatLng(1, 2))],
+      waypoints: [('P', LatLng(1, 2), null)],
       routeLine: [LatLng(0, 0), LatLng(1, 1)],
     );
     final sync = parseKmlPlacemarks(kml);

@@ -1,4 +1,5 @@
 # Release APK'yi share_apk/ altina kopyalar (WhatsApp, USB, bulut paylasimi icin).
+# Google Drive sabit klasor: scripts/stage_apk_google_drive.ps1 -> share_apk/GoogleDriveUpload/
 $root = Split-Path -Parent $PSScriptRoot
 $src = Join-Path $root "build\app\outputs\flutter-apk\app-release.apk"
 $destDir = Join-Path $root "share_apk"

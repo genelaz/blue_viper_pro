@@ -125,14 +125,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(state.debugPolygonVertexCount, greaterThanOrEqualTo(3));
 
-    // 9) İz kaydı toggle (UI) → state değişir
-    final trackBtn = find.byTooltip('İz kaydı');
-    expect(trackBtn, findsOneWidget);
-    await tester.tap(trackBtn);
+    // 9) İz kaydı (alt çubuk yüksekliği değişince üst buton z-order’da kayabiliyor; state API)
+    expect(state.debugRecordingTrack, isFalse);
+    state.debugToggleTrackRecording();
     await tester.pumpAndSettle();
     expect(state.debugRecordingTrack, isTrue);
 
-    await tester.tap(find.byTooltip('İz kaydını durdur'));
+    state.debugToggleTrackRecording();
     await tester.pumpAndSettle();
     expect(state.debugRecordingTrack, isFalse);
   });

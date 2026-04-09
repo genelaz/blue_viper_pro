@@ -6,6 +6,136 @@ import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:xml/xml.dart';
 
+/// `IconStyle` / `hotSpot`: çapa noktası görüntü üzerinde; birimler KML 2.2 ile uyumlu (küçük harf).
+class KmlIconHotspot {
+  const KmlIconHotspot({
+    required this.x,
+    required this.y,
+    required this.xunits,
+    required this.yunits,
+  });
+
+  /// Alt kenar ortası (yaygın varsayılan).
+  static const KmlIconHotspot kmlDefault = KmlIconHotspot(
+    x: 0.5,
+    y: 0,
+    xunits: 'fraction',
+    yunits: 'fraction',
+  );
+
+  final double x;
+  final double y;
+  /// `fraction` | `pixels` | `insetpixels`
+  final String xunits;
+  final String yunits;
+
+  /// Görüntü boyutuna göre çapanın sol alt köşeden piksel uzaklığı.
+  (double pxFromLeft, double pyFromBottom) anchorFromBottomLeft(double imgW, double imgH) {
+    if (imgW <= 0 || imgH <= 0) return (0, 0);
+    final xu = xunits.replaceAll('_', '');
+    final yu = yunits.replaceAll('_', '');
+    double pxLeft;
+    switch (xu) {
+      case 'pixels':
+        pxLeft = x;
+        break;
+      case 'insetpixels':
+        pxLeft = imgW - x;
+        break;
+      case 'fraction':
+      default:
+        pxLeft = x * imgW;
+        break;
+    }
+    double pyBottom;
+    switch (yu) {
+      case 'pixels':
+        pyBottom = y;
+        break;
+      case 'insetpixels':
+        pyBottom = imgH - y;
+        break;
+      case 'fraction':
+      default:
+        pyBottom = y * imgH;
+        break;
+    }
+    return (pxLeft, pyBottom);
+  }
+}
+
+bool _kmlHotspotEqual(KmlIconHotspot? a, KmlIconHotspot? b) {
+  if (identical(a, b)) return true;
+  if (a == null || b == null) return false;
+  return a.x == b.x && a.y == b.y && a.xunits == b.xunits && a.yunits == b.yunits;
+}
+
+/// CDATA / basit HTML `description` veya balon metnini araç ipucu için düz metne indirger.
+String kmlPlainTextFromBalloonHtml(String? raw) {
+  if (raw == null) return '';
+  var s = raw.replaceAll(RegExp(r'<[^>]*>'), ' ');
+  s = s
+      .replaceAll('&nbsp;', ' ')
+      .replaceAll('&amp;', '&')
+      .replaceAll('&lt;', '<')
+      .replaceAll('&gt;', '>')
+      .replaceAll('&quot;', '"')
+      .replaceAll('&#39;', "'")
+      .replaceAll('&apos;', "'");
+  s = s.replaceAll(RegExp(r'\s+'), ' ').trim();
+  return s;
+}
+
+/// KML `Point` placemark — harita içe aktarımı.
+class KmlPointImport {
+  const KmlPointImport({
+    required this.name,
+    required this.point,
+    this.iconColorArgb,
+    this.iconScale,
+    this.iconImageBytes,
+    this.iconHotspot,
+    this.balloonText,
+    this.iconHref,
+    this.hasKmlIconHighlight = false,
+    this.iconHighlightColorArgb,
+    this.iconHighlightScale,
+    this.iconHighlightHotspot,
+  });
+
+  final String name;
+  final LatLng point;
+  final int? iconColorArgb;
+  final double? iconScale;
+  /// KMZ gömülü dosyadan çözülen ikon; yoksa yalnız renk/ölçek ile daire işaret.
+  final Uint8List? iconImageBytes;
+  final KmlIconHotspot? iconHotspot;
+  /// `BalloonStyle` / `text` (`$[name]` ve `$[description]` yerine metin konur).
+  final String? balloonText;
+  /// `Icon/href` (KMZ / yerel dosya / HTTPS sonradan çözülür).
+  final String? iconHref;
+  /// `StyleMap` highlight yolu birleşik görünümden ikon açısından farklıysa dokununca highlight uygulanır.
+  final bool hasKmlIconHighlight;
+  final int? iconHighlightColorArgb;
+  final double? iconHighlightScale;
+  final KmlIconHotspot? iconHighlightHotspot;
+
+  KmlPointImport withResolvedIcon(Uint8List bytes) => KmlPointImport(
+        name: name,
+        point: point,
+        iconColorArgb: iconColorArgb,
+        iconScale: iconScale,
+        iconImageBytes: bytes,
+        iconHotspot: iconHotspot,
+        balloonText: balloonText,
+        iconHref: null,
+        hasKmlIconHighlight: hasKmlIconHighlight,
+        iconHighlightColorArgb: iconHighlightColorArgb,
+        iconHighlightScale: iconHighlightScale,
+        iconHighlightHotspot: iconHighlightHotspot,
+      );
+}
+
 /// KML `Polygon`: dış sınır ve isteğe bağlı `innerBoundaryIs` delikleri.
 class KmlPolygonPatch {
   const KmlPolygonPatch({
@@ -154,10 +284,24 @@ class _KmlVisStyle {
   double? lineWidth;
   int? fillArgb;
   bool? polyOutline;
+  int? iconColorArgb;
+  double? iconScale;
+  String? iconHref;
+  KmlIconHotspot? iconHotspot;
+  String? balloonText;
 
   bool get hasLine => lineArgb != null;
   bool get hasFill => fillArgb != null;
-  bool get hasAny => hasLine || hasFill || lineWidth != null || polyOutline != null;
+  bool get hasAny =>
+      hasLine ||
+      hasFill ||
+      lineWidth != null ||
+      polyOutline != null ||
+      iconColorArgb != null ||
+      iconScale != null ||
+      (iconHref != null && iconHref!.trim().isNotEmpty) ||
+      iconHotspot != null ||
+      (balloonText != null && balloonText!.trim().isNotEmpty);
 
   void applyStyleElement(XmlElement styleRoot) {
     final lc = _lineStyleArgbFromStyleElement(styleRoot);
@@ -168,6 +312,37 @@ class _KmlVisStyle {
     if (fc != null) fillArgb = fc;
     final po = _polyOutlineFromStyleElement(styleRoot);
     if (po != null) polyOutline = po;
+    for (final bs in styleRoot.findElements('BalloonStyle')) {
+      for (final t in bs.findElements('text')) {
+        final raw = t.innerText.trim();
+        if (raw.isNotEmpty) balloonText = raw;
+      }
+    }
+    for (final ic in styleRoot.findElements('IconStyle')) {
+      for (final c in ic.findElements('color')) {
+        final v = kmlLineColorAabbggrrToArgb32(c.innerText);
+        if (v != null) iconColorArgb = v;
+      }
+      for (final s in ic.findElements('scale')) {
+        final v = double.tryParse(s.innerText.trim());
+        if (v != null && v > 0) iconScale = v;
+      }
+      for (final iconEl in ic.findElements('Icon')) {
+        for (final h in iconEl.findElements('href')) {
+          final t = h.innerText.trim();
+          if (t.isNotEmpty) iconHref = t;
+        }
+      }
+      if (iconHref == null || iconHref!.trim().isEmpty) {
+        for (final h in ic.findElements('href')) {
+          final t = h.innerText.trim();
+          if (t.isNotEmpty) iconHref = t;
+        }
+      }
+      for (final hs in ic.findElements('hotSpot')) {
+        iconHotspot = _parseKmlHotSpotElement(hs);
+      }
+    }
   }
 
   void mergeFrom(_KmlVisStyle o) {
@@ -175,6 +350,11 @@ class _KmlVisStyle {
     if (o.lineWidth != null) lineWidth = o.lineWidth;
     if (o.fillArgb != null) fillArgb = o.fillArgb;
     if (o.polyOutline != null) polyOutline = o.polyOutline;
+    if (o.iconColorArgb != null) iconColorArgb = o.iconColorArgb;
+    if (o.iconScale != null) iconScale = o.iconScale;
+    if (o.iconHref != null && o.iconHref!.trim().isNotEmpty) iconHref = o.iconHref;
+    if (o.iconHotspot != null) iconHotspot = o.iconHotspot;
+    if (o.balloonText != null && o.balloonText!.trim().isNotEmpty) balloonText = o.balloonText;
   }
 
   void fillGapsFrom(_KmlVisStyle o) {
@@ -182,6 +362,11 @@ class _KmlVisStyle {
     lineWidth ??= o.lineWidth;
     fillArgb ??= o.fillArgb;
     polyOutline ??= o.polyOutline;
+    iconColorArgb ??= o.iconColorArgb;
+    iconScale ??= o.iconScale;
+    if (iconHref == null || iconHref!.trim().isEmpty) iconHref = o.iconHref;
+    iconHotspot ??= o.iconHotspot;
+    if (balloonText == null || balloonText!.trim().isEmpty) balloonText = o.balloonText;
   }
 }
 
@@ -237,11 +422,32 @@ class _KmlStyleIndex {
     return acc;
   }
 
+  _KmlVisStyle _resolveStyleUrlHighlightOnly(String? raw) {
+    final frag = _kmlStyleUrlFragment(raw ?? '');
+    final acc = _KmlVisStyle();
+    if (frag == null) return acc;
+    _walkMerge(frag, styleMapHighlight, acc);
+    return acc;
+  }
+
   _KmlVisStyle placemarkVisual(XmlElement pm) {
     final acc = _KmlVisStyle();
     final urls = pm.findElements('styleUrl');
     if (urls.isNotEmpty) {
       acc.mergeFrom(_resolveStyleUrl(urls.first.innerText));
+    }
+    for (final st in pm.findElements('Style')) {
+      acc.applyStyleElement(st);
+    }
+    return acc;
+  }
+
+  /// Yalnızca `StyleMap` / `Pair` `highlight` zinciri + placemark içi `Style` (GE tıklama görünümü).
+  _KmlVisStyle placemarkVisualHighlightOnly(XmlElement pm) {
+    final acc = _KmlVisStyle();
+    final urls = pm.findElements('styleUrl');
+    if (urls.isNotEmpty) {
+      acc.mergeFrom(_resolveStyleUrlHighlightOnly(urls.first.innerText));
     }
     for (final st in pm.findElements('Style')) {
       acc.applyStyleElement(st);
@@ -262,7 +468,7 @@ class _KmlStyleIndex {
 /// [areaLoops]: çokgen sınırları; kapalı değilse ilk nokta sonda tekrarlanır.
 String buildGpxDocument({
   required String name,
-  List<(String name, LatLng p)> waypoints = const [],
+  List<(String name, LatLng p, String? description)> waypoints = const [],
   List<(String routeName, List<LatLng> line)>? routeLines,
   List<(String trackName, List<LatLng> line)>? lineTracks,
   List<LatLng>? trackPoints,
@@ -275,10 +481,13 @@ String buildGpxDocument({
     ..writeln('<?xml version="1.0" encoding="UTF-8"?>')
     ..writeln('<gpx version="1.1" creator="Blue Viper Pro" xmlns="http://www.topografix.com/GPX/1/1">')
     ..writeln('  <metadata><name>${esc(name)}</name></metadata>');
-  for (final (nm, p) in waypoints) {
-    buf.writeln(
-      '  <wpt lat="${p.latitude}" lon="${p.longitude}"><name>${esc(nm)}</name></wpt>',
-    );
+  for (final (nm, p, desc) in waypoints) {
+    buf.writeln('  <wpt lat="${p.latitude}" lon="${p.longitude}"><name>${esc(nm)}</name>');
+    final d = desc?.trim();
+    if (d != null && d.isNotEmpty) {
+      buf.writeln('    <desc>${esc(d)}</desc>');
+    }
+    buf.writeln('  </wpt>');
   }
   if (routeLines != null) {
     for (final (rteNm, rteLine) in routeLines) {
@@ -365,7 +574,7 @@ void _writeKmlMapStyles(StringBuffer buf) {
 /// çağıran genelde [routeLine] vermez — aynı geometrinin iki kez yazılmasını önler.
 String buildKmlMapExport({
   required String documentName,
-  List<(String name, LatLng p)> waypoints = const [],
+  List<(String name, LatLng p, String? description)> waypoints = const [],
   List<(String name, List<LatLng> line, int? strokeArgb, double? strokeWidthPx)>? styledPolylines,
   List<LatLng>? routeLine,
   List<LatLng>? recordedTrackLine,
@@ -378,9 +587,13 @@ String buildKmlMapExport({
     ..writeln('  <Document>')
     ..writeln('    <name>${_kmlEsc(documentName)}</name>');
   _writeKmlMapStyles(buf);
-  for (final (nm, p) in waypoints) {
+  for (final (nm, p, desc) in waypoints) {
     buf.writeln('    <Placemark>');
     buf.writeln('      <name>${_kmlEsc(nm)}</name>');
+    final d = desc?.trim();
+    if (d != null && d.isNotEmpty) {
+      buf.writeln('      <description>${_kmlEsc(d)}</description>');
+    }
     buf.writeln('      <styleUrl>#bv_wpt</styleUrl>');
     buf.writeln('      <Point><coordinates>${p.longitude},${p.latitude},0</coordinates></Point>');
     buf.writeln('    </Placemark>');
@@ -551,21 +764,132 @@ List<int> encodeKmzFromKml(String kml) {
   return ZipEncoder().encode(arch);
 }
 
+/// KMZ içi göreli yol — arama anahtarı (küçük harf, `/` ayracı).
+String kmlNormalizeZipInternalPath(String raw) {
+  var s = raw.trim().replaceAll('\\', '/');
+  while (s.startsWith('/')) {
+    s = s.substring(1);
+  }
+  while (s.startsWith('./')) {
+    s = s.substring(2);
+  }
+  return s.toLowerCase();
+}
+
+/// KMZ arşivindeki tüm dosyalar → normalize yol → ham bayt.
+Map<String, Uint8List> decodeKmzEmbeddedFiles(List<int> bytes) {
+  final arch = ZipDecoder().decodeBytes(bytes);
+  final out = <String, Uint8List>{};
+  for (final f in arch.files) {
+    if (!f.isFile) continue;
+    final norm = kmlNormalizeZipInternalPath(f.name);
+    if (norm.isEmpty) continue;
+    out[norm] = Uint8List.fromList(f.content);
+  }
+  return out;
+}
+
+/// PNG `IHDR` boyutu; aksi `null` (JPEG vb. için üst katman varsayılan boy kullanır).
+(int width, int height)? kmlPngDimensionsIfAny(Uint8List b) {
+  if (b.length < 24) return null;
+  if (b[0] != 0x89 || b[1] != 0x50 || b[2] != 0x4E || b[3] != 0x47) return null;
+  final w = (b[16] << 24) | (b[17] << 16) | (b[18] << 8) | b[19];
+  final h = (b[20] << 24) | (b[21] << 16) | (b[22] << 8) | b[23];
+  if (w <= 0 || h <= 0 || w > 8192 || h > 8192) return null;
+  return (w, h);
+}
+
+Uint8List? _lookupKmzIconBytes(String? href, Map<String, Uint8List>? files) {
+  if (href == null || files == null || files.isEmpty) return null;
+  final t = href.trim();
+  if (t.isEmpty) return null;
+  if (t.contains('://')) return null;
+  final key = kmlNormalizeZipInternalPath(t);
+  final direct = files[key];
+  if (direct != null) return direct;
+  final slash = key.lastIndexOf('/');
+  final base = slash < 0 ? key : key.substring(slash + 1);
+  for (final e in files.entries) {
+    if (e.key == base || e.key.endsWith('/$base')) return e.value;
+  }
+  return null;
+}
+
+KmlIconHotspot? _parseKmlHotSpotElement(XmlElement hs) {
+  final x = double.tryParse(hs.getAttribute('x') ?? '') ?? 0.5;
+  final y = double.tryParse(hs.getAttribute('y') ?? '') ?? 0;
+  var xu = (hs.getAttribute('xunits') ?? 'fraction').trim().toLowerCase().replaceAll('_', '');
+  var yu = (hs.getAttribute('yunits') ?? 'fraction').trim().toLowerCase().replaceAll('_', '');
+  if (xu == 'inset') xu = 'insetpixels';
+  if (yu == 'inset') yu = 'insetpixels';
+  return KmlIconHotspot(x: x, y: y, xunits: xu, yunits: yu);
+}
+
+bool _kmlIconStyleSameForMarker(_KmlVisStyle merged, _KmlVisStyle highlight) {
+  return merged.iconColorArgb == highlight.iconColorArgb &&
+      merged.iconScale == highlight.iconScale &&
+      _kmlHotspotEqual(merged.iconHotspot, highlight.iconHotspot);
+}
+
+KmlPointImport _kmlPointFromVis(
+  String name,
+  LatLng p,
+  _KmlVisStyle visMerged,
+  _KmlVisStyle visHighlight,
+  Map<String, Uint8List>? kmzEmbeddedFiles,
+  XmlElement pm,
+) {
+  final hrefRaw = visMerged.iconHref?.trim();
+  final href = (hrefRaw == null || hrefRaw.isEmpty) ? null : hrefRaw;
+  final bytes = _lookupKmzIconBytes(href, kmzEmbeddedFiles);
+  String? descFromPm;
+  for (final d in pm.findElements('description')) {
+    final t = d.innerText.trim();
+    if (t.isNotEmpty) {
+      descFromPm = kmlPlainTextFromBalloonHtml(t);
+      break;
+    }
+  }
+  String? bt = visMerged.balloonText?.trim();
+  if (bt != null && bt.isNotEmpty) {
+    bt = kmlPlainTextFromBalloonHtml(bt);
+    bt = bt.replaceAll(r'$[name]', name);
+    if (descFromPm != null) bt = bt.replaceAll(r'$[description]', descFromPm);
+  } else {
+    bt = descFromPm;
+  }
+  final hiDiffers = !_kmlIconStyleSameForMarker(visMerged, visHighlight);
+  return KmlPointImport(
+    name: name,
+    point: p,
+    iconColorArgb: visMerged.iconColorArgb,
+    iconScale: visMerged.iconScale,
+    iconImageBytes: bytes,
+    iconHotspot: visMerged.iconHotspot,
+    balloonText: bt,
+    iconHref: bytes != null ? null : href,
+    hasKmlIconHighlight: hiDiffers,
+    iconHighlightColorArgb: hiDiffers ? visHighlight.iconColorArgb : null,
+    iconHighlightScale: hiDiffers ? visHighlight.iconScale : null,
+    iconHighlightHotspot: hiDiffers ? visHighlight.iconHotspot : null,
+  );
+}
+
 /// KML: Point, LineString/LinearRing, Polygon (dış + iç sınırlar) ve MultiPolygon.
 ///
 /// [hasNetworkLink]: belgede `<NetworkLink>` var (harici KML bağlantısı; okunmaz).
 ///
 /// [styledLines]: Placemark adı, geometri, 0xAARRGGBB ve isteğe bağlı KML `LineStyle`/`width`.
 ({
-  List<(String name, LatLng p)> points,
+  List<KmlPointImport> points,
   List<List<LatLng>> lines,
   List<(String name, List<LatLng> line, int? strokeArgb, double? strokeWidthPx)> styledLines,
   List<KmlPolygonPatch> polygonPatches,
   bool hasNetworkLink,
-}) parseKmlPlacemarks(String kml) {
+}) parseKmlPlacemarks(String kml, {Map<String, Uint8List>? kmzEmbeddedFiles}) {
   final doc = XmlDocument.parse(kml);
   final styleIndex = _KmlStyleIndex(doc);
-  final points = <(String, LatLng)>[];
+  final points = <KmlPointImport>[];
   final lines = <List<LatLng>>[];
   final styledLines = <(String, List<LatLng>, int?, double?)>[];
   final polygonPatches = <KmlPolygonPatch>[];
@@ -634,7 +958,11 @@ List<int> encodeKmzFromKml(String kml) {
       final ce = point.findElements('coordinates');
       final coord = ce.isEmpty ? '' : ce.first.innerText;
       final p = _parseCoordTriplet(coord);
-      if (p != null) points.add((name, p));
+      if (p != null) {
+        final vis = styleIndex.placemarkVisual(pm);
+        final visHi = styleIndex.placemarkVisualHighlightOnly(pm);
+        points.add(_kmlPointFromVis(name, p, vis, visHi, kmzEmbeddedFiles, pm));
+      }
     }
     for (final child in pm.childElements) {
       if (child.name.local != 'LineString' && child.name.local != 'LinearRing') continue;
@@ -657,7 +985,11 @@ List<int> encodeKmzFromKml(String kml) {
           final ce = c.findElements('coordinates');
           final coord = ce.isEmpty ? '' : ce.first.innerText;
           final p = _parseCoordTriplet(coord);
-          if (p != null) points.add((name, p));
+          if (p != null) {
+            final vis = styleIndex.placemarkVisual(pm);
+            final visHi = styleIndex.placemarkVisualHighlightOnly(pm);
+            points.add(_kmlPointFromVis(name, p, vis, visHi, kmzEmbeddedFiles, pm));
+          }
         } else if (c.name.local == 'LineString' || c.name.local == 'LinearRing') {
           final ce = c.findElements('coordinates');
           final coord = ce.isEmpty ? '' : ce.first.innerText;
@@ -751,7 +1083,7 @@ Future<String?> fetchKmlOrKmzAsUtf8String(
 
 /// Yerel geometri + isteğe bağlı `NetworkLink` hedeflerinden (HTTPS) ek geometri.
 Future<({
-  List<(String name, LatLng p)> points,
+  List<KmlPointImport> points,
   List<List<LatLng>> lines,
   List<(String name, List<LatLng> line, int? strokeArgb, double? strokeWidthPx)> styledLines,
   List<KmlPolygonPatch> polygonPatches,
@@ -763,8 +1095,9 @@ Future<({
   int maxBytesPerUrl = 2 * 1024 * 1024,
   Duration fetchTimeout = const Duration(seconds: 15),
   int networkNestingLeft = 2,
+  Map<String, Uint8List>? kmzEmbeddedFiles,
 }) async {
-  final base = parseKmlPlacemarks(kml);
+  final base = parseKmlPlacemarks(kml, kmzEmbeddedFiles: kmzEmbeddedFiles);
   if (networkNestingLeft <= 0) {
     return (
       points: base.points,
@@ -786,7 +1119,7 @@ Future<({
       resolvedAnyNetworkLink: false,
     );
   }
-  var pts = List<(String, LatLng)>.from(base.points);
+  var pts = List<KmlPointImport>.from(base.points);
   var lns = List<List<LatLng>>.from(base.lines);
   var sln = List<(String, List<LatLng>, int?, double?)>.from(base.styledLines);
   var polys = List<KmlPolygonPatch>.from(base.polygonPatches);
@@ -802,6 +1135,7 @@ Future<({
       maxBytesPerUrl: maxBytesPerUrl,
       fetchTimeout: fetchTimeout,
       networkNestingLeft: networkNestingLeft - 1,
+      kmzEmbeddedFiles: null,
     );
     pts.addAll(sub.points);
     lns.addAll(sub.lines);
@@ -821,7 +1155,7 @@ Future<({
 
 /// Zip veya birden çok KML parçası için üst üste birleştirilmiş sonuç.
 Future<({
-  List<(String name, LatLng p)> points,
+  List<KmlPointImport> points,
   List<List<LatLng>> lines,
   List<(String name, List<LatLng> line, int? strokeArgb, double? strokeWidthPx)> styledLines,
   List<KmlPolygonPatch> polygonPatches,
@@ -833,8 +1167,9 @@ Future<({
   int maxBytesPerUrl = 2 * 1024 * 1024,
   Duration fetchTimeout = const Duration(seconds: 15),
   int networkNestingLeft = 2,
+  Map<String, Uint8List>? kmzEmbeddedFiles,
 }) async {
-  var pts = <(String, LatLng)>[];
+  var pts = <KmlPointImport>[];
   var lns = <List<LatLng>>[];
   var sln = <(String, List<LatLng>, int?, double?)>[];
   var polys = <KmlPolygonPatch>[];
@@ -847,6 +1182,7 @@ Future<({
       maxBytesPerUrl: maxBytesPerUrl,
       fetchTimeout: fetchTimeout,
       networkNestingLeft: networkNestingLeft,
+      kmzEmbeddedFiles: kmzEmbeddedFiles,
     );
     if (k.hadNetworkLink) anyHad = true;
     if (k.resolvedAnyNetworkLink) anyResolved = true;
@@ -863,6 +1199,45 @@ Future<({
     anyHadNetworkLink: anyHad,
     anyResolvedNetworkLink: anyResolved,
   );
+}
+
+/// `https` veya `http` `Icon/href` için küçük raster; büyük yanıtlar reddedilir.
+Future<Uint8List?> fetchKmlIconBytesUri(
+  Uri uri, {
+  int maxBytes = 512 * 1024,
+  Duration timeout = const Duration(seconds: 12),
+}) async {
+  if (uri.scheme != 'https' && uri.scheme != 'http') return null;
+  final client = http.Client();
+  try {
+    final req = http.Request('GET', uri);
+    req.headers['User-Agent'] = 'BlueViperPro/1.0 KML-icon';
+    final streamed = await client.send(req).timeout(timeout);
+    if (streamed.statusCode < 200 || streamed.statusCode >= 300) return null;
+    final chunks = <int>[];
+    var total = 0;
+    await for (final chunk in streamed.stream.timeout(timeout)) {
+      total += chunk.length;
+      if (total > maxBytes) return null;
+      chunks.addAll(chunk);
+    }
+    if (chunks.isEmpty) return null;
+    return Uint8List.fromList(chunks);
+  } catch (_) {
+    return null;
+  } finally {
+    client.close();
+  }
+}
+
+/// Geriye uyumluluk: yalnızca `https` (http için [fetchKmlIconBytesUri]).
+Future<Uint8List?> fetchKmlIconBytesHttps(
+  Uri uri, {
+  int maxBytes = 512 * 1024,
+  Duration timeout = const Duration(seconds: 12),
+}) async {
+  if (uri.scheme != 'https') return null;
+  return fetchKmlIconBytesUri(uri, maxBytes: maxBytes, timeout: timeout);
 }
 
 LatLng? _parseCoordTriplet(String raw) {

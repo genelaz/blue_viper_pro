@@ -1,5 +1,9 @@
+import 'dart:async' show unawaited;
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
+import '../../../core/ballistics/ballistic_compare_ref_store.dart';
 import '../../../core/ballistics/ballistics_engine.dart';
 import '../../../core/ballistics/ballistics_export.dart';
 import '../../../core/ballistics/bc_g7_estimate.dart';
@@ -10,18 +14,33 @@ import '../../../core/ballistics/custom_drag_table.dart';
 import '../../../core/ballistics/powder_temperature.dart';
 import '../../../core/ballistics/wind_geometry.dart';
 import '../../../core/bluetooth/ballistics_env_bridge.dart';
+import '../../../core/catalog/ballistic_preset_repository.dart';
+import '../../../core/catalog/ballistic_preset_updater.dart';
 import '../../../core/catalog/catalog_data.dart';
 import '../../../core/catalog/catalog_loader.dart';
 import '../../../core/catalog/user_catalog_store.dart';
 import '../../../core/catalog/weapon_ballistic_presets.dart';
 import '../../../core/geo/saved_targets_store.dart';
 import '../../../core/geo/target_solution_store.dart';
+import '../../../core/profile/shot_scene_preset.dart';
 import '../../../core/profile/weapon_profile_store.dart';
 import '../../../core/reticles/reticle_catalog_loader.dart';
 import '../../../core/reticles/reticle_definition.dart';
 import '../../../core/reticles/reticle_user_prefs.dart';
+import '../../../core/reticles/scope_reticle_map.dart';
+import 'manual_scope_entry_page.dart';
+import 'manual_weapon_entry_page.dart';
 import 'reticle_hold_view.dart';
 import 'reticle_photo_section.dart';
+import 'trajectory_validation_page.dart';
+
+enum _TempUnit { c, f }
+
+enum _PressureUnit { hpa, inHg, mmHg }
+
+enum _LengthUnit { m, ft }
+
+enum _SlopeUnit { deg, percent }
 
 class BallisticsPage extends StatefulWidget {
   const BallisticsPage({super.key});
@@ -72,6 +91,10 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
 
   ClickUnit _clickUnit = ClickUnit.mil;
   BcKind _bcKind = BcKind.g1;
+  _TempUnit _tempUnit = _TempUnit.c;
+  _PressureUnit _pressureUnit = _PressureUnit.hpa;
+  _LengthUnit _heightUnit = _LengthUnit.m;
+  _SlopeUnit _slopeUnit = _SlopeUnit.deg;
   bool _coriolisOn = false;
   bool _spinOn = false;
   bool _jumpOn = false;
@@ -86,6 +109,14 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
   List<WeaponType> _weapons = CatalogData.weapons;
   List<ScopeType> _scopes = CatalogData.scopes;
   List<AmmoType> _ammos = CatalogData.ammos;
+  bool _isUpdatingRemotePresets = false;
+  String _activePresetVersion = 'builtin-v1';
+  String _activePresetSource = 'bundled';
+  BallisticPresetManifest? _previousPresetManifest;
+  Map<String, WeaponBallisticPreset> _weaponPresetMap =
+      Map<String, WeaponBallisticPreset>.from(weaponBallisticPresets);
+  Map<String, WeaponBallisticPreset> _caliberFallbackPresetMap =
+      Map<String, WeaponBallisticPreset>.from(caliberFallbackPresets);
 
   List<ReticleDefinition> _reticles = [];
   ReticleDefinition? _selectedReticle;
@@ -96,6 +127,23 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
   BallisticsSolveOutput? _result;
 
   List<SavedTargetPreset> _savedTargets = [];
+
+  /// Aynı atış koşullarında iki balistik profili karşılaştırmak için yakalanan girdi.
+  BallisticsSolveInput? _profileCompareRef;
+  String _profileCompareSummary = '';
+
+  /// Dürbün seçilince katalogdan markaya uygun parametrik retikül öner.
+  bool _autoReticleFromScope = true;
+
+  /// [WeaponProfileBookStore] satiri; bos ise «Profili kaydet» yeni wp_... id uretir.
+  String? _activeBookProfileId;
+
+  /// Aciksa defter filtresi kaldirilir (tum katalog silahlari icin kayitlar).
+  bool _showAllWeaponBookEntries = false;
+
+  /// [ShotScenePresetBookStore] — ortam / rüzgâr / barut eğrisi.
+  String? _activeScenePresetId;
+  bool _showAllSceneBookEntries = false;
 
   late TabController _tabController;
 
@@ -108,13 +156,47 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
       setState(() {});
     });
     WeaponProfileStore.current.addListener(_onWeaponProfileChanged);
+    WeaponProfileBookStore.entries.addListener(_onBookEntriesChanged);
+    ShotScenePresetBookStore.current.addListener(_onShotSceneChanged);
+    ShotScenePresetBookStore.entries.addListener(_onSceneBookEntriesChanged);
     BallisticsEnvBridge.pending.addListener(_applyBleEnvToForm);
     _loadUserCatalog();
     _loadReticleCatalog();
     SavedTargetsStore.load().then((list) {
       if (mounted) setState(() => _savedTargets = list);
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) => _applyBleEnvToForm());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _applyPersistedProfileToForm();
+      _applyBleEnvToForm();
+      unawaited(_loadPersistedCompareRef());
+    });
+  }
+
+  String _formatCompareRefSummary(BallisticsSolveInput snap) {
+    final bcLabel = snap.bcKind == BcKind.g7 ? 'G7' : 'G1';
+    return '$bcLabel ${snap.ballisticCoefficient.toStringAsFixed(3)} · '
+        '${snap.muzzleVelocityMps.toStringAsFixed(0)} m/s';
+  }
+
+  Future<void> _loadPersistedCompareRef() async {
+    final r = await BallisticCompareRefStore.load();
+    if (r == null || !mounted) return;
+    setState(() {
+      _profileCompareRef = r;
+      _profileCompareSummary = _formatCompareRefSummary(r);
+    });
+  }
+
+  Future<void> _clearProfileCompareRef() async {
+    await BallisticCompareRefStore.clear();
+    if (!mounted) return;
+    setState(() {
+      _profileCompareRef = null;
+      _profileCompareSummary = '';
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Karşılaştırma referansı silindi.')),
+    );
   }
 
   /// BLE’den gelen sıcaklık / basınç / nem alanlarını doldurur (Kestrel vb.).
@@ -143,22 +225,286 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
 
   void _onWeaponProfileChanged() {
     if (!mounted) return;
-    _applyPersistedProfileToForm();
+    final p = WeaponProfileStore.current.value;
+    setState(() {
+      if (p != null) _applyWeaponProfileFields(p);
+    });
+  }
+
+  void _onBookEntriesChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _onSceneBookEntriesChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _onShotSceneChanged() {
+    if (!mounted) return;
+    final s = ShotScenePresetBookStore.current.value;
+    setState(() {
+      if (s != null) {
+        _applyShotSceneFields(s);
+        _activeScenePresetId = s.id;
+      } else {
+        _activeScenePresetId = null;
+      }
+    });
   }
 
   void _applyPersistedProfileToForm() {
     final p = WeaponProfileStore.current.value;
-    if (p == null) return;
+    final s = ShotScenePresetBookStore.current.value;
     setState(() {
-      _weaponNameCtrl.text = p.name;
-      _mvCtrl.text = p.muzzleVelocityMps.toStringAsFixed(0);
-      _bcCtrl.text = p.displayBallisticCoefficient.toString();
-      _bcKind = p.bcKind;
-      _sightHcmCtrl.text = (p.sightHeightM * 100).toStringAsFixed(1);
-      _zeroRangeCtrl.text = p.zeroRangeM.toStringAsFixed(0);
-      _clickUnit = p.clickUnit;
-      _clickValueCtrl.text = p.clickValue.toString();
+      if (p != null) _applyWeaponProfileFields(p);
+      if (s != null) _applyShotSceneFields(s);
+      _activeScenePresetId = s?.id;
     });
+  }
+
+  /// [setState] disinda da cagrilabilir (or. [_loadUserCatalog] icinde).
+  void _applyWeaponProfileFields(WeaponProfile p) {
+    WeaponType? catalogMatch;
+    final wcId = p.weaponCatalogId;
+    if (wcId != null && wcId.isNotEmpty) {
+      for (final w in _weapons) {
+        if (w.id == wcId) {
+          catalogMatch = w;
+          break;
+        }
+      }
+    }
+    _activeBookProfileId = p.id.isNotEmpty ? p.id : null;
+    if (catalogMatch != null) {
+      _selectedWeapon = catalogMatch;
+    }
+    _weaponNameCtrl.text = p.name;
+    _mvCtrl.text = p.muzzleVelocityMps.toStringAsFixed(0);
+    _bcCtrl.text = p.displayBallisticCoefficient.toString();
+    _bcKind = p.bcKind;
+    _sightHcmCtrl.text = (p.sightHeightM * 100).toStringAsFixed(1);
+    _zeroRangeCtrl.text = p.zeroRangeM.toStringAsFixed(0);
+    _clickUnit = p.clickUnit;
+    _clickValueCtrl.text = p.clickValue.toString();
+    _spinOn = p.enableSpinDrift;
+    _twistRightHanded = p.twistRightHanded;
+    if (p.bulletMassGrains != null) {
+      _grainCtrl.text = p.bulletMassGrains!.toStringAsFixed(0);
+    }
+    if (p.bulletCaliberInches != null) {
+      _calInCtrl.text = p.bulletCaliberInches!.toString();
+    }
+    if (p.twistInchesPerTurn != null) {
+      _twistInCtrl.text = p.twistInchesPerTurn!.toString();
+    }
+    _coriolisOn = p.enableCoriolis;
+    _jumpOn = p.enableAerodynamicJump;
+    if (p.latitudeDegrees != null) {
+      _latCtrl.text = p.latitudeDegrees!.toStringAsFixed(1);
+    }
+    if (p.azimuthFromNorthDegrees != null) {
+      _shotAzCtrl.text = p.azimuthFromNorthDegrees!.toStringAsFixed(1);
+    }
+  }
+
+  void _applyShotSceneFields(ShotScenePreset p) {
+    _tempUnit = _tempUnitFromKey(p.temperatureUnitKey);
+    _pressureUnit = _pressureUnitFromKey(p.pressureUnitKey);
+    _heightUnit = _heightUnitFromKey(p.heightUnitKey);
+    _slopeUnit = _slopeUnitFromKey(p.slopeUnitKey);
+    if (p.temperatureValue != null) {
+      _tempCtrl.text = p.temperatureValue!.toStringAsFixed(1);
+    }
+    if (p.pressureValue != null) {
+      _pressureCtrl.text = p.pressureValue!.toStringAsFixed(1);
+    }
+    if (p.humidityPercent != null) {
+      _rhCtrl.text = p.humidityPercent!.toStringAsFixed(0);
+    }
+    if (p.densityAltitudeValue != null) {
+      _daCtrl.text = p.densityAltitudeValue!.toStringAsFixed(1);
+    }
+    if (p.targetElevationDeltaValue != null) {
+      _elevDeltaCtrl.text = p.targetElevationDeltaValue!.toStringAsFixed(1);
+    }
+    if (p.slopeValue != null) {
+      _slopeCtrl.text = p.slopeValue!.toStringAsFixed(2);
+    }
+    _useMetWindVector = p.useMetWindVector;
+    if (p.crossWindValue != null) {
+      _crossWindCtrl.text = p.crossWindValue!.toStringAsFixed(1);
+    }
+    if (p.windSpeedValue != null) {
+      _windSpeedVecCtrl.text = p.windSpeedValue!.toStringAsFixed(1);
+    }
+    if (p.windFromValue != null) {
+      _windFromCtrl.text = p.windFromValue!.toStringAsFixed(1);
+    }
+    if (p.powderT1 != null) {
+      _powderT1Ctrl.text = p.powderT1!.toStringAsFixed(1);
+    }
+    if (p.powderV1 != null) {
+      _powderV1Ctrl.text = p.powderV1!.toStringAsFixed(1);
+    }
+    if (p.powderT2 != null) {
+      _powderT2Ctrl.text = p.powderT2!.toStringAsFixed(1);
+    }
+    if (p.powderV2 != null) {
+      _powderV2Ctrl.text = p.powderV2!.toStringAsFixed(1);
+    }
+    if (p.powderCurrentT != null) {
+      _powderCurTCtrl.text = p.powderCurrentT!.toStringAsFixed(1);
+    }
+  }
+
+  void _fillFormFromWeaponProfile(WeaponProfile p) {
+    setState(() => _applyWeaponProfileFields(p));
+  }
+
+  /// Varsayilan: secili [WeaponType] ile eslesen + silahtan bagimsiz (genel) satirlar.
+  List<WeaponProfile> _visibleBookProfiles() {
+    final all = WeaponProfileBookStore.entries.value;
+    if (_showAllWeaponBookEntries) return List<WeaponProfile>.from(all);
+    final wid = _selectedWeapon?.id;
+    if (wid == null) {
+      return all
+          .where((e) => e.weaponCatalogId == null || e.weaponCatalogId!.isEmpty)
+          .toList();
+    }
+    return all
+        .where((e) {
+          final o = e.weaponCatalogId;
+          return o == null || o.isEmpty || o == wid;
+        })
+        .toList();
+  }
+
+  String _bookEntryCatalogSubtitle(WeaponProfile e) {
+    final id = e.weaponCatalogId;
+    if (id == null || id.isEmpty) {
+      return 'Katalog silahı: genel (tüm çeşitlerde listelenir)';
+    }
+    for (final w in _weapons) {
+      if (w.id == id) return 'Katalog: ${w.name} · ${w.caliber}';
+    }
+    return 'Katalog id: $id (liste güncel değilse bulunmayabilir)';
+  }
+
+  /// Defter özet satırı — hatve / mermi kayıtlıysa gösterilir.
+  String? _bookSpinSummaryLine(WeaponProfile e) {
+    final has = e.enableSpinDrift ||
+        e.bulletMassGrains != null ||
+        e.bulletCaliberInches != null ||
+        e.twistInchesPerTurn != null;
+    if (!has) return null;
+    final parts = <String>[];
+    if (e.bulletMassGrains != null) {
+      parts.add('${e.bulletMassGrains!.toStringAsFixed(0)} gr');
+    }
+    if (e.bulletCaliberInches != null) {
+      parts.add('${e.bulletCaliberInches} in çap');
+    }
+    if (e.twistInchesPerTurn != null) {
+      parts.add('1:${e.twistInchesPerTurn} ${e.twistRightHanded ? 'RH' : 'LH'}');
+    }
+    final tail = parts.isEmpty ? '—' : parts.join(' · ');
+    return 'Spin/hedef: ${e.enableSpinDrift ? 'açık' : 'kapalı'} · $tail';
+  }
+
+  /// Coriolis / jump / enlem / azimut özeti.
+  String? _bookCoriolisSummaryLine(WeaponProfile e) {
+    final has = e.enableCoriolis ||
+        e.enableAerodynamicJump ||
+        e.latitudeDegrees != null ||
+        e.azimuthFromNorthDegrees != null;
+    if (!has) return null;
+    final parts = <String>[];
+    if (e.enableCoriolis) parts.add('Coriolis');
+    if (e.latitudeDegrees != null) {
+      parts.add('φ ${e.latitudeDegrees!.toStringAsFixed(1)}°');
+    }
+    if (e.enableAerodynamicJump) parts.add('Aero jump');
+    if (e.azimuthFromNorthDegrees != null) {
+      parts.add('Atış azimut ${e.azimuthFromNorthDegrees!.toStringAsFixed(0)}°');
+    }
+    if (parts.isEmpty) return null;
+    return parts.join(' · ');
+  }
+
+  List<ShotScenePreset> _visibleScenePresets() {
+    final all = ShotScenePresetBookStore.entries.value;
+    if (_showAllSceneBookEntries) return List<ShotScenePreset>.from(all);
+    final wid = WeaponProfileStore.current.value?.id;
+    if (wid == null || wid.isEmpty) {
+      return all.where((e) => e.linkedWeaponProfileId == null || e.linkedWeaponProfileId!.isEmpty).toList();
+    }
+    return all
+        .where((e) =>
+            e.linkedWeaponProfileId == null || e.linkedWeaponProfileId!.isEmpty || e.linkedWeaponProfileId == wid)
+        .toList();
+  }
+
+  Future<void> _applyBookSceneEntry(ShotScenePreset p) async {
+    await ShotScenePresetBookStore.setActive(p);
+    if (!mounted) return;
+    setState(() {
+      _applyShotSceneFields(p);
+      _activeScenePresetId = p.id;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Sahne yüklendi: ${p.name}')),
+    );
+  }
+
+  Future<void> _deleteScenePresetEntry(String id) async {
+    await ShotScenePresetBookStore.remove(id);
+    if (!mounted) return;
+    if (_activeScenePresetId == id) {
+      _activeScenePresetId = ShotScenePresetBookStore.current.value?.id;
+    }
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Sahne silindi.')),
+    );
+  }
+
+  void _startNewScenePreset() {
+    setState(() => _activeScenePresetId = null);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Sonraki «Sahneyi kaydet» yeni sahne satırı oluşturur.'),
+      ),
+    );
+  }
+
+  Future<void> _applyBookProfileEntry(WeaponProfile p) async {
+    await WeaponProfileBookStore.setActive(p);
+    if (!mounted) return;
+    _fillFormFromWeaponProfile(p);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Defterden yuklendi: ${p.name}')),
+    );
+  }
+
+  Future<void> _deleteBookProfileEntry(String id) async {
+    await WeaponProfileBookStore.remove(id);
+    if (!mounted) return;
+    if (_activeBookProfileId == id) {
+      _activeBookProfileId = WeaponProfileStore.current.value?.id;
+    }
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Profil silindi.')),
+    );
+  }
+
+  void _startNewBookProfile() {
+    setState(() => _activeBookProfileId = null);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Sonraki «Profili kaydet» yeni defter satiri olur.'),
+      ),
+    );
   }
 
   @override
@@ -166,6 +512,9 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
     _tabController.dispose();
     BallisticsEnvBridge.pending.removeListener(_applyBleEnvToForm);
     WeaponProfileStore.current.removeListener(_onWeaponProfileChanged);
+    WeaponProfileBookStore.entries.removeListener(_onBookEntriesChanged);
+    ShotScenePresetBookStore.current.removeListener(_onShotSceneChanged);
+    ShotScenePresetBookStore.entries.removeListener(_onSceneBookEntriesChanged);
     for (final c in [
       _distanceCtrl,
       _weaponNameCtrl,
@@ -210,6 +559,8 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
 
   Future<void> _loadUserCatalog() async {
     final bundled = await CatalogLoader.loadTurkeyNato();
+    final presetBundle = await BallisticPresetRepository.loadActiveOrBuiltIn();
+    final prevManifest = await BallisticPresetRepository.peekPreviousManifest();
     final uw = await UserCatalogStore.loadWeapons();
     final us = await UserCatalogStore.loadScopes();
     final ua = await UserCatalogStore.loadAmmos();
@@ -218,25 +569,122 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
       _weapons = CatalogLoader.mergeWeapons(CatalogData.weapons, bundled.weapons, uw);
       _scopes = CatalogLoader.mergeScopes(CatalogData.scopes, bundled.scopes, us);
       _ammos = CatalogLoader.mergeAmmos(CatalogData.ammos, bundled.ammos, ua);
+      _weaponPresetMap = presetBundle.weaponPresets;
+      _caliberFallbackPresetMap = presetBundle.caliberFallbackPresets;
+      _activePresetVersion = presetBundle.manifest.dataVersion;
+      _activePresetSource = presetBundle.manifest.source;
+      _previousPresetManifest = prevManifest;
       final persisted = WeaponProfileStore.current.value;
       if (persisted != null) {
-        _weaponNameCtrl.text = persisted.name;
-        _mvCtrl.text = persisted.muzzleVelocityMps.toStringAsFixed(0);
-        _bcCtrl.text = persisted.displayBallisticCoefficient.toString();
-        _bcKind = persisted.bcKind;
-        _sightHcmCtrl.text = (persisted.sightHeightM * 100).toStringAsFixed(1);
-        _zeroRangeCtrl.text = persisted.zeroRangeM.toStringAsFixed(0);
-        _clickUnit = persisted.clickUnit;
-        _clickValueCtrl.text = persisted.clickValue.toString();
+        _applyWeaponProfileFields(persisted);
       } else if (_selectedWeapon != null) {
         _applyWeaponBallisticPreset(_selectedWeapon!);
       }
+      final scene = ShotScenePresetBookStore.current.value;
+      if (scene != null) {
+        _applyShotSceneFields(scene);
+        _activeScenePresetId = scene.id;
+      }
     });
+  }
+
+  Future<void> _updateBallisticPresetsFromRemote() async {
+    final savedUrl = await BallisticPresetUpdater.getRemoteUrl() ?? '';
+    if (!mounted) return;
+    final ctrl = TextEditingController(text: savedUrl);
+    var forceApply = false;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: const Text('Preset güncelle (remote)'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: ctrl,
+                  keyboardType: TextInputType.url,
+                  decoration: const InputDecoration(
+                    labelText: 'Manifest URL',
+                    hintText: 'https://example.com/ballistics/presets.json',
+                  ),
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: forceApply,
+                  onChanged: (v) => setLocal(() => forceApply = v),
+                  title: const Text('Zorla uygula'),
+                  subtitle: Text(
+                    'Aynı sürüm etiketinde bile paketi yeniden doğrular ve yükler.',
+                    style: Theme.of(ctx).textTheme.bodySmall,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('İptal')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Güncelle')),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) return;
+    final url = ctrl.text.trim();
+    if (url.isEmpty) return;
+    setState(() => _isUpdatingRemotePresets = true);
+    final res = await BallisticPresetUpdater.updateFromUrl(url, force: forceApply);
+    if (!mounted) return;
+    setState(() => _isUpdatingRemotePresets = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(res.message)),
+    );
+    if (res.success) {
+      await _loadUserCatalog();
+    }
+  }
+
+  Future<void> _rollbackBallisticPresets() async {
+    final prev = _previousPresetManifest ?? await BallisticPresetRepository.peekPreviousManifest();
+    if (prev == null || !mounted) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Önceki preset sürümüne dön'),
+        content: Text(
+          'Aktif: $_activePresetVersion ($_activePresetSource)\n'
+          'Yüklenecek: ${prev.dataVersion} (${prev.source})\n\n'
+          'Bir önceki kayıtlı paketle değiştirilsin mi?',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('İptal')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Geri al')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final did = await BallisticPresetRepository.rollbackToPrevious();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          did
+              ? 'Önceki preset yüklendi.'
+              : 'Geri alınacak paket bulunamadı.',
+        ),
+      ),
+    );
+    if (did) {
+      await _loadUserCatalog();
+    }
   }
 
   Future<void> _loadReticleCatalog() async {
     final list = await ReticleCatalogLoader.load();
     if (!mounted) return;
+    final scopeSnap = _selectedScope;
     setState(() {
       _reticles = list;
       if (_selectedReticle == null && list.isNotEmpty) {
@@ -245,6 +693,17 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
       }
     });
     await _reloadReticleQuickPrefs();
+    if (scopeSnap != null && _autoReticleFromScope && list.isNotEmpty) {
+      await _syncReticleFromScope(scopeSnap);
+    }
+  }
+
+  Future<void> _syncReticleFromScope(ScopeType s) async {
+    if (!_autoReticleFromScope || _reticles.isEmpty) return;
+    final rid = defaultReticleCatalogIdForScope(s) ?? fallbackReticleCatalogId(s.clickUnit);
+    final idx = _reticles.indexWhere((e) => e.id == rid);
+    if (idx < 0) return;
+    await _selectReticle(_reticles[idx]);
   }
 
   Future<void> _reloadReticleQuickPrefs() async {
@@ -338,6 +797,41 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
 
   double _parse(String s) => double.parse(s.replaceAll(',', '.'));
 
+  String _tempUnitKey(_TempUnit u) => switch (u) { _TempUnit.c => 'c', _TempUnit.f => 'f' };
+  String _pressureUnitKey(_PressureUnit u) => switch (u) {
+        _PressureUnit.hpa => 'hpa',
+        _PressureUnit.inHg => 'inHg',
+        _PressureUnit.mmHg => 'mmHg',
+      };
+  String _heightUnitKey(_LengthUnit u) => switch (u) { _LengthUnit.m => 'm', _LengthUnit.ft => 'ft' };
+  String _slopeUnitKey(_SlopeUnit u) => switch (u) { _SlopeUnit.deg => 'deg', _SlopeUnit.percent => 'percent' };
+  _TempUnit _tempUnitFromKey(String? s) => s == 'f' ? _TempUnit.f : _TempUnit.c;
+  _PressureUnit _pressureUnitFromKey(String? s) => switch (s) {
+        'inHg' => _PressureUnit.inHg,
+        'mmHg' => _PressureUnit.mmHg,
+        _ => _PressureUnit.hpa,
+      };
+  _LengthUnit _heightUnitFromKey(String? s) => s == 'ft' ? _LengthUnit.ft : _LengthUnit.m;
+  _SlopeUnit _slopeUnitFromKey(String? s) => s == 'percent' ? _SlopeUnit.percent : _SlopeUnit.deg;
+
+  double _tempToC(double v) => _tempUnit == _TempUnit.c ? v : (v - 32.0) * 5.0 / 9.0;
+
+  double _pressureToHpa(double v) {
+    switch (_pressureUnit) {
+      case _PressureUnit.hpa:
+        return v;
+      case _PressureUnit.inHg:
+        return v * 33.8638866667;
+      case _PressureUnit.mmHg:
+        return v * 1.33322;
+    }
+  }
+
+  double _lengthToMeters(double v) => _heightUnit == _LengthUnit.m ? v : v * 0.3048;
+
+  double _slopeToDegrees(double v) =>
+      _slopeUnit == _SlopeUnit.deg ? v : math.atan(v / 100.0) * 180.0 / math.pi;
+
   List<TempVelocityPair> _powderPairs() {
     final t1 = double.tryParse(_powderT1Ctrl.text.replaceAll(',', '.'));
     final v1 = double.tryParse(_powderV1Ctrl.text.replaceAll(',', '.'));
@@ -367,6 +861,10 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
 
   BallisticsSolveInput _collectInput() {
     final daRaw = double.tryParse(_daCtrl.text.replaceAll(',', '.'));
+    final tRaw = _parse(_tempCtrl.text);
+    final pRaw = _parse(_pressureCtrl.text);
+    final elevRaw = _parse(_elevDeltaCtrl.text);
+    final slopeRaw = _parse(_slopeCtrl.text);
     final bcSeg = parseBcMachSegments(_bcSegCtrl.text);
     final customDrag = parseCustomDragTable(_customDragCtrl.text);
     final customINodes = customDrag?.iNodes;
@@ -375,12 +873,13 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
       muzzleVelocityMps: _parse(_mvCtrl.text),
       bcKind: _bcKind,
       ballisticCoefficient: _parse(_bcCtrl.text),
-      temperatureC: _parse(_tempCtrl.text),
-      pressureHpa: _parse(_pressureCtrl.text),
+      temperatureC: _tempToC(tRaw),
+      pressureHpa: _pressureToHpa(pRaw),
       relativeHumidityPercent: double.tryParse(_rhCtrl.text.replaceAll(',', '.')) ?? 0,
-      densityAltitudeMeters: (daRaw != null && daRaw.abs() > 1e-6) ? daRaw : null,
-      targetElevationDeltaMeters: _parse(_elevDeltaCtrl.text),
-      slopeAngleDegrees: _parse(_slopeCtrl.text),
+      densityAltitudeMeters:
+          (daRaw != null && daRaw.abs() > 1e-6) ? _lengthToMeters(daRaw) : null,
+      targetElevationDeltaMeters: _lengthToMeters(elevRaw),
+      slopeAngleDegrees: _slopeToDegrees(slopeRaw),
       sightHeightMeters: (double.tryParse(_sightHcmCtrl.text.replaceAll(',', '.')) ?? 3.8) / 100.0,
       zeroRangeMeters: double.tryParse(_zeroRangeCtrl.text.replaceAll(',', '.')) ?? 100,
       crossWindMps: _crossWindMpsResolved(),
@@ -389,9 +888,9 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
       azimuthFromNorthDegrees: double.tryParse(_shotAzCtrl.text.replaceAll(',', '.')) ?? 0,
       enableSpinDrift: _spinOn,
       riflingTwistSign: _twistRightHanded ? 1 : -1,
-      bulletMassGrains: _spinOn ? double.tryParse(_grainCtrl.text.replaceAll(',', '.')) : null,
-      bulletCaliberInches: _spinOn ? double.tryParse(_calInCtrl.text.replaceAll(',', '.')) : null,
-      twistInchesPerTurn: _spinOn ? double.tryParse(_twistInCtrl.text.replaceAll(',', '.')) : null,
+      bulletMassGrains: double.tryParse(_grainCtrl.text.replaceAll(',', '.')),
+      bulletCaliberInches: double.tryParse(_calInCtrl.text.replaceAll(',', '.')),
+      twistInchesPerTurn: double.tryParse(_twistInCtrl.text.replaceAll(',', '.')),
       enableAerodynamicJump: _jumpOn,
       clickUnit: _clickUnit,
       clickValue: _parse(_clickValueCtrl.text),
@@ -465,6 +964,16 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
           ),
         ),
         actions: [
+          TextButton(
+            onPressed: () async {
+              final csv = savedTargetSolvesToCsv([
+                for (final (t, o) in rows)
+                  (t.name, t.distanceMeters, t.elevationDeltaMeters, o),
+              ]);
+              await shareCsvText(csv, filename: 'blue_viper_saved_targets.csv');
+            },
+            child: const Text('CSV paylaş'),
+          ),
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Kapat')),
         ],
       ),
@@ -476,6 +985,7 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
     final prev = WeaponProfileStore.current.value;
     final bc = _parse(_bcCtrl.text);
     final profile = WeaponProfile(
+      id: _activeBookProfileId ?? '',
       name: _weaponNameCtrl.text.trim().isEmpty ? 'Rifle-1' : _weaponNameCtrl.text.trim(),
       muzzleVelocityMps: _parse(_mvCtrl.text),
       ballisticCoefficientG1: _bcKind == BcKind.g1
@@ -487,11 +997,89 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
       zeroRangeM: double.tryParse(_zeroRangeCtrl.text.replaceAll(',', '.')) ?? 100,
       clickUnit: _clickUnit,
       clickValue: _parse(_clickValueCtrl.text),
+      weaponCatalogId: _selectedWeapon?.id,
+      enableSpinDrift: _spinOn,
+      twistRightHanded: _twistRightHanded,
+      bulletMassGrains: double.tryParse(_grainCtrl.text.replaceAll(',', '.')),
+      bulletCaliberInches: double.tryParse(_calInCtrl.text.replaceAll(',', '.')),
+      twistInchesPerTurn: double.tryParse(_twistInCtrl.text.replaceAll(',', '.')),
+      enableCoriolis: _coriolisOn,
+      latitudeDegrees: double.tryParse(_latCtrl.text.replaceAll(',', '.')),
+      enableAerodynamicJump: _jumpOn,
+      azimuthFromNorthDegrees: double.tryParse(_shotAzCtrl.text.replaceAll(',', '.')),
     );
-    await WeaponProfileStore.save(profile);
+    final saved = await WeaponProfileBookStore.upsertAndActivate(profile);
     if (!mounted) return;
+    setState(() => _activeBookProfileId = saved.id);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Profil kaydedildi: ${profile.name}')),
+      SnackBar(content: Text('Deftere kaydedildi: ${saved.name}')),
+    );
+  }
+
+  Future<void> _saveShotScenePreset() async {
+    if (!_formKey.currentState!.validate()) return;
+    var name = 'Sahne';
+    ShotScenePreset? existing;
+    for (final e in ShotScenePresetBookStore.entries.value) {
+      if (e.id == _activeScenePresetId) {
+        existing = e;
+        break;
+      }
+    }
+    if (existing != null) {
+      name = existing.name;
+    } else {
+      final nameCtrl = TextEditingController(text: 'Sahne');
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Sahne kaydı'),
+          content: TextField(
+            controller: nameCtrl,
+            decoration: const InputDecoration(
+              labelText: 'Sahne adı',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('İptal')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Kaydet')),
+          ],
+        ),
+      );
+      if (ok != true) return;
+      name = nameCtrl.text.trim().isEmpty ? 'Sahne' : nameCtrl.text.trim();
+    }
+    final wpId = WeaponProfileStore.current.value?.id ?? _activeBookProfileId ?? '';
+    final preset = ShotScenePreset(
+      id: _activeScenePresetId ?? '',
+      name: name,
+      linkedWeaponProfileId: wpId.isNotEmpty ? wpId : null,
+      temperatureUnitKey: _tempUnitKey(_tempUnit),
+      pressureUnitKey: _pressureUnitKey(_pressureUnit),
+      heightUnitKey: _heightUnitKey(_heightUnit),
+      slopeUnitKey: _slopeUnitKey(_slopeUnit),
+      temperatureValue: double.tryParse(_tempCtrl.text.replaceAll(',', '.')),
+      pressureValue: double.tryParse(_pressureCtrl.text.replaceAll(',', '.')),
+      humidityPercent: double.tryParse(_rhCtrl.text.replaceAll(',', '.')),
+      densityAltitudeValue: double.tryParse(_daCtrl.text.replaceAll(',', '.')),
+      targetElevationDeltaValue: double.tryParse(_elevDeltaCtrl.text.replaceAll(',', '.')),
+      slopeValue: double.tryParse(_slopeCtrl.text.replaceAll(',', '.')),
+      useMetWindVector: _useMetWindVector,
+      crossWindValue: double.tryParse(_crossWindCtrl.text.replaceAll(',', '.')),
+      windSpeedValue: double.tryParse(_windSpeedVecCtrl.text.replaceAll(',', '.')),
+      windFromValue: double.tryParse(_windFromCtrl.text.replaceAll(',', '.')),
+      powderT1: double.tryParse(_powderT1Ctrl.text.replaceAll(',', '.')),
+      powderV1: double.tryParse(_powderV1Ctrl.text.replaceAll(',', '.')),
+      powderT2: double.tryParse(_powderT2Ctrl.text.replaceAll(',', '.')),
+      powderV2: double.tryParse(_powderV2Ctrl.text.replaceAll(',', '.')),
+      powderCurrentT: double.tryParse(_powderCurTCtrl.text.replaceAll(',', '.')),
+    );
+    final saved = await ShotScenePresetBookStore.upsertAndActivate(preset);
+    if (!mounted) return;
+    setState(() => _activeScenePresetId = saved.id);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Sahne kaydedildi: ${saved.name}')),
     );
   }
 
@@ -580,48 +1168,37 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
     return r / (m <= 0 ? 10.0 : m);
   }
 
-  Future<void> _truingDialog() async {
-    final obsCtrl = TextEditingController();
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('BC doğrulama (truing)'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Gözlemlediğiniz yükseliş düzeltmesini (mil) girin. Menzil, Vo ve atmosfer üstteki forma göre alınır.',
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: obsCtrl,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: 'Gözlenen düşüş düzeltmesi (mil)',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
+  Future<void> _truingDialog({bool initialTuneMv = false}) async {
+    final ammoLine = _selectedAmmo != null
+        ? '${_selectedAmmo!.name} (${_selectedAmmo!.caliber})'
+        : 'Mühimmat seçilmedi';
+    final r = await Navigator.of(context).push<TrajectoryValidationResult>(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (ctx) => TrajectoryValidationPage(
+          ammoSummary: ammoLine,
+          initialMvMode: initialTuneMv,
+          distanceController: _distanceCtrl,
+          currentMvText: _mvCtrl.text.trim().isEmpty ? '—' : _mvCtrl.text.trim(),
+          validateParentForm: () => _formKey.currentState?.validate() ?? false,
+          collectInput: _collectInput,
+          clickUnit: _clickUnit,
+          clickValueText: _clickValueCtrl.text,
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('İptal')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Hesapla')),
-        ],
       ),
     );
-    if (ok != true) return;
-    final obs = double.tryParse(obsCtrl.text.replaceAll(',', '.'));
-    if (obs == null) return;
-    if (!_formKey.currentState!.validate()) return;
-    final bcNew = BallisticsEngine.trueBallisticCoefficientForObservedDrop(
-      template: _collectInput(),
-      observedDropMil: obs,
-    );
-    if (bcNew == null || !mounted) return;
-    setState(() => _bcCtrl.text = bcNew.toStringAsFixed(4));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Önerilen ${_bcKind.label} BC: ${bcNew.toStringAsFixed(4)} (forma uygulandı)')),
-    );
+    if (!mounted || r == null) return;
+    if (r.mv != null) {
+      setState(() => _mvCtrl.text = r.mv!.toStringAsFixed(1));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Vo güncellendi: ${r.mv!.toStringAsFixed(1)} m/s')),
+      );
+    } else if (r.bc != null) {
+      setState(() => _bcCtrl.text = r.bc!.toStringAsFixed(4));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${_bcKind.label} BC güncellendi: ${r.bc!.toStringAsFixed(4)}')),
+      );
+    }
   }
 
   Future<void> _rangeTableDialog() async {
@@ -704,8 +1281,221 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
     );
   }
 
+  Future<void> _captureProfileCompareRef() async {
+    if (!_formKey.currentState!.validate()) return;
+    final snap = _collectInput();
+    await BallisticCompareRefStore.save(snap);
+    if (!mounted) return;
+    setState(() {
+      _profileCompareRef = snap;
+      _profileCompareSummary = _formatCompareRefSummary(snap);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Referans profil kaydedildi (Vo/BC/nişan).')),
+    );
+  }
+
+  Future<void> _compareProfilesDialog() async {
+    final ref = _profileCompareRef;
+    if (ref == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Önce «Referans» ile mevcut formu yakalayın.')),
+      );
+      return;
+    }
+    if (!_formKey.currentState!.validate()) return;
+    final cur = _collectInput();
+    final outA = BallisticsEngine.solve(ref.withShotConditionsFrom(cur));
+    final outB = BallisticsEngine.solve(cur);
+    if (!mounted) return;
+    String d1(num x) => x.toStringAsFixed(1);
+    String d2(num x) => x.toStringAsFixed(2);
+    String d0(num x) => x.toStringAsFixed(0);
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Profil karşılaştırması'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: DataTable(
+              columnSpacing: 12,
+              columns: const [
+                DataColumn(label: Text('')),
+                DataColumn(label: Text('Referans')),
+                DataColumn(label: Text('Güncel')),
+                DataColumn(label: Text('Δ')),
+              ],
+              rows: [
+                DataRow(
+                  cells: [
+                    const DataCell(Text('Elev mil')),
+                    DataCell(Text(d2(outA.dropMil))),
+                    DataCell(Text(d2(outB.dropMil))),
+                    DataCell(Text(d2(outB.dropMil - outA.dropMil))),
+                  ],
+                ),
+                DataRow(
+                  cells: [
+                    const DataCell(Text('Wind mil')),
+                    DataCell(Text(d2(outA.windMil))),
+                    DataCell(Text(d2(outB.windMil))),
+                    DataCell(Text(d2(outB.windMil - outA.windMil))),
+                  ],
+                ),
+                DataRow(
+                  cells: [
+                    const DataCell(Text('LatΣ mil')),
+                    DataCell(Text(d2(outA.combinedLateralMil))),
+                    DataCell(Text(d2(outB.combinedLateralMil))),
+                    DataCell(Text(d2(outB.combinedLateralMil - outA.combinedLateralMil))),
+                  ],
+                ),
+                DataRow(
+                  cells: [
+                    const DataCell(Text('Lead mil')),
+                    DataCell(Text(d2(outA.leadMil))),
+                    DataCell(Text(d2(outB.leadMil))),
+                    DataCell(Text(d2(outB.leadMil - outA.leadMil))),
+                  ],
+                ),
+                DataRow(
+                  cells: [
+                    const DataCell(Text('TOF ms')),
+                    DataCell(Text(d0(outA.timeOfFlightMs))),
+                    DataCell(Text(d0(outB.timeOfFlightMs))),
+                    DataCell(Text(d0(outB.timeOfFlightMs - outA.timeOfFlightMs))),
+                  ],
+                ),
+                DataRow(
+                  cells: [
+                    const DataCell(Text('MV m/s')),
+                    DataCell(Text(d1(outA.adjustedMuzzleVelocityMps))),
+                    DataCell(Text(d1(outB.adjustedMuzzleVelocityMps))),
+                    DataCell(Text(d1(outB.adjustedMuzzleVelocityMps - outA.adjustedMuzzleVelocityMps))),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              final csv = profileCompareToCsv(refOut: outA, curOut: outB);
+              await shareCsvText(csv, filename: 'blue_viper_profile_compare.csv');
+            },
+            child: const Text('CSV paylaş'),
+          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Kapat')),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _batchRangeListDialog() async {
+    final ctrl = TextEditingController(text: '300,400,500,600,800');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Menzil listesi (toplu hesap)'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(
+            labelText: 'Menziller (m)',
+            hintText: 'Virgül veya boşluk ile ayırın: 300, 450, 600',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('İptal')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Hesapla')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final raw = ctrl.text.replaceAll(';', ',').split(RegExp(r'[\s,]+'));
+    final ranges = <int>[];
+    for (final p in raw) {
+      final t = p.trim();
+      if (t.isEmpty) continue;
+      final v = int.tryParse(t);
+      if (v == null || v < 1) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Geçersiz menzil: "$t"')),
+        );
+        return;
+      }
+      ranges.add(v);
+    }
+    ranges.sort();
+    final uniq = <int>{...ranges}.toList()..sort();
+    if (uniq.isEmpty) return;
+    if (!_formKey.currentState!.validate()) return;
+    final template = _collectInput();
+    final rows = <(int, BallisticsSolveOutput)>[];
+    for (final r in uniq) {
+      final input = template.withTargetGeometry(
+        distanceMeters: r.toDouble(),
+        targetElevationDeltaMeters: template.targetElevationDeltaMeters,
+      );
+      rows.add((r, BallisticsEngine.solve(input)));
+    }
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Toplu menzil özeti'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 400,
+          child: Scrollbar(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SingleChildScrollView(
+                child: DataTable(
+                  columnSpacing: 14,
+                  columns: const [
+                    DataColumn(label: Text('m')),
+                    DataColumn(label: Text('Elev mil')),
+                    DataColumn(label: Text('Wind mil')),
+                    DataColumn(label: Text('LatΣ mil')),
+                    DataColumn(label: Text('TOF ms')),
+                  ],
+                  rows: [
+                    for (final (r, o) in rows)
+                      DataRow(
+                        cells: [
+                          DataCell(Text('$r')),
+                          DataCell(Text(o.dropMil.toStringAsFixed(2))),
+                          DataCell(Text(o.windMil.toStringAsFixed(2))),
+                          DataCell(Text(o.combinedLateralMil.toStringAsFixed(2))),
+                          DataCell(Text(o.timeOfFlightMs.toStringAsFixed(0))),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              final csv = multiRangeSolveToCsv(rows);
+              await shareCsvText(csv, filename: 'blue_viper_batch_ranges.csv');
+            },
+            child: const Text('CSV paylaş'),
+          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Kapat')),
+        ],
+      ),
+    );
+  }
+
   void _applyWeaponBallisticPreset(WeaponType w) {
-    final p = ballisticPresetForWeapon(w);
+    final p = _weaponPresetMap[w.id] ?? _caliberFallbackPresetMap[w.caliber];
     if (p == null) return;
     if (p.scopeCatalogId != null) {
       for (final s in _scopes) {
@@ -737,12 +1527,26 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
     _bcCtrl.text = bcText.toString();
   }
 
+  void _applyWeaponCatalogUiDefaults(WeaponType w) {
+    final z = w.defaultZeroRangeM;
+    if (z != null && z > 0) _zeroRangeCtrl.text = z.toStringAsFixed(0);
+    final sh = w.defaultSightHeightCm;
+    if (sh != null && sh > 0) _sightHcmCtrl.text = sh.toStringAsFixed(1);
+    final tw = w.twistInchesPerTurn;
+    if (tw != null && tw > 0) _twistInCtrl.text = tw.toString();
+    final trh = w.twistRightHanded;
+    if (trh != null) _twistRightHanded = trh;
+    final bl = w.barrelLengthInches;
+    if (bl != null && bl > 0) _selectNearestBarrelInches(bl);
+  }
+
   void _onWeaponChanged(WeaponType? w) {
     setState(() {
       _selectedWeapon = w;
       if (w != null) {
         _weaponNameCtrl.text = '${w.name} (${w.caliber})';
         _applyWeaponBallisticPreset(w);
+        _applyWeaponCatalogUiDefaults(w);
       }
     });
   }
@@ -753,8 +1557,20 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
       if (s != null) {
         _clickUnit = s.clickUnit;
         _clickValueCtrl.text = s.clickValue.toString();
+        final maxZ = s.maxMagnification;
+        final minZ = s.minMagnification;
+        if (maxZ != null && maxZ > 0) {
+          _scopeMagCtrl.text = maxZ.toString();
+        } else if (minZ != null && minZ > 0) {
+          _scopeMagCtrl.text = minZ.toString();
+        }
+        final refZ = s.referenceMagnification;
+        if (refZ != null && refZ > 0) {
+          _refMagCtrl.text = refZ.toString();
+        }
       }
     });
+    if (s != null) unawaited(_syncReticleFromScope(s));
   }
 
   void _applyBarrelVariant(AmmoBarrelVariant v) {
@@ -808,86 +1624,93 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
   }
 
   Future<void> _addWeaponDialog() async {
-    final nameCtrl = TextEditingController();
-    final calCtrl = TextEditingController();
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Yeni silah ekle'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Silah adı')),
-            TextField(controller: calCtrl, decoration: const InputDecoration(labelText: 'Kalibre')),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Ekle')),
-        ],
+    double? pInStr(String s) {
+      final t = s.trim();
+      if (t.isEmpty) return null;
+      final v = double.tryParse(t.replaceAll(',', '.'));
+      if (v == null || !v.isFinite || v <= 0) return null;
+      return v;
+    }
+
+    final v = await Navigator.of(context).push<ManualWeaponFormValues>(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (ctx) => const ManualWeaponEntryPage(),
       ),
     );
-    if (ok != true) return;
-    final name = nameCtrl.text.trim();
-    final cal = calCtrl.text.trim();
-    if (name.isEmpty || cal.isEmpty) return;
+    if (v == null || !mounted) return;
+
+    final twistParsed = pInStr(v.twistInchesPerTurn);
     final item = WeaponType(
       id: 'user_weapon_${DateTime.now().millisecondsSinceEpoch}',
-      name: name,
-      caliber: cal,
+      name: v.name,
+      caliber: v.caliber,
+      role: v.role.isEmpty ? null : v.role,
+      region: v.region.isEmpty ? null : v.region,
+      barrelLengthInches: pInStr(v.barrelInches),
+      notes: v.notes.isEmpty ? null : v.notes,
+      defaultZeroRangeM: pInStr(v.zeroRangeM),
+      defaultSightHeightCm: pInStr(v.sightHeightCm),
+      twistInchesPerTurn: twistParsed,
+      twistRightHanded: twistParsed != null ? v.twistRh : null,
     );
-    final custom = _weapons.where((e) => e.id.startsWith('user_weapon_')).toList()..add(item);
+    final existing = await UserCatalogStore.loadWeapons();
+    final custom = existing.where((e) => e.id.startsWith('user_weapon_')).toList()..add(item);
     await UserCatalogStore.saveWeapons(custom);
     await _loadUserCatalog();
+    if (!mounted) return;
+    final addedId = item.id;
+    final g = v.grain.trim().isEmpty ? null : double.tryParse(v.grain.replaceAll(',', '.'));
+    final ci = v.bulletCalIn.trim().isEmpty ? null : double.tryParse(v.bulletCalIn.replaceAll(',', '.'));
+    setState(() {
+      WeaponType? pick;
+      for (final w in _weapons) {
+        if (w.id == addedId) {
+          pick = w;
+          break;
+        }
+      }
+      if (pick != null) {
+        _selectedWeapon = pick;
+        _weaponNameCtrl.text = '${pick.name} (${pick.caliber})';
+        _applyWeaponBallisticPreset(pick);
+        _applyWeaponCatalogUiDefaults(pick);
+      }
+      if (g != null && g > 0) _grainCtrl.text = g.toStringAsFixed(0);
+      if (ci != null && ci > 0) _calInCtrl.text = ci.toString();
+    });
   }
 
   Future<void> _addScopeDialog() async {
-    final nameCtrl = TextEditingController();
-    final valueCtrl = TextEditingController(text: '0.1');
-    ClickUnit unit = ClickUnit.mil;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setLocal) => AlertDialog(
-          title: const Text('Yeni dürbün ekle'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Dürbün adı')),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<ClickUnit>(
-                key: ValueKey(unit),
-                initialValue: unit,
-                items: [for (final u in ClickUnit.values) DropdownMenuItem(value: u, child: Text(u.label))],
-                onChanged: (v) => setLocal(() => unit = v ?? unit),
-                decoration: const InputDecoration(labelText: 'Klik birimi', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: valueCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Klik değeri'),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Ekle')),
-          ],
-        ),
+    double? pMagStr(String s) {
+      final t = s.trim();
+      if (t.isEmpty) return null;
+      final v = double.tryParse(t.replaceAll(',', '.'));
+      if (v == null || !v.isFinite || v <= 0) return null;
+      return v;
+    }
+
+    final form = await Navigator.of(context).push<ManualScopeFormValues>(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (ctx) => const ManualScopeEntryPage(),
       ),
     );
-    if (ok != true) return;
-    final name = nameCtrl.text.trim();
-    final val = double.tryParse(valueCtrl.text.replaceAll(',', '.'));
-    if (name.isEmpty || val == null || val <= 0) return;
+    if (form == null || !mounted) return;
+    final val = double.tryParse(form.clickValueText.replaceAll(',', '.'));
+    if (val == null || val <= 0) return;
     final item = ScopeType(
       id: 'user_scope_${DateTime.now().millisecondsSinceEpoch}',
-      name: name,
-      clickUnit: unit,
+      name: form.name,
+      clickUnit: form.clickUnit,
       clickValue: val,
+      minMagnification: pMagStr(form.minMag),
+      maxMagnification: pMagStr(form.maxMag),
+      referenceMagnification: pMagStr(form.refMag),
+      notes: form.notes.isEmpty ? null : form.notes,
     );
-    final custom = _scopes.where((e) => e.id.startsWith('user_scope_')).toList()..add(item);
+    final existing = await UserCatalogStore.loadScopes();
+    final custom = existing.where((e) => e.id.startsWith('user_scope_')).toList()..add(item);
     await UserCatalogStore.saveScopes(custom);
     await _loadUserCatalog();
   }
@@ -1018,7 +1841,8 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
         bc24g7: g24,
       ),
     );
-    final custom = _ammos.where((e) => e.id.startsWith('user_ammo_')).toList()..add(item);
+    final existing = await UserCatalogStore.loadAmmos();
+    final custom = existing.where((e) => e.id.startsWith('user_ammo_')).toList()..add(item);
     await UserCatalogStore.saveAmmos(custom);
     await _loadUserCatalog();
   }
@@ -1152,28 +1976,126 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
         ),
       ]),
       _strelokSection(context, 'ORTAM', [
-        _numField(_tempCtrl, 'Sıcaklık (ISA)', suffix: '°C'),
+        Row(
+          children: [
+            Expanded(
+              child: _numField(
+                _tempCtrl,
+                'Sıcaklık (ISA)',
+                suffix: _tempUnit == _TempUnit.c ? '°C' : '°F',
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 110,
+              child: DropdownButtonFormField<_TempUnit>(
+                key: ValueKey(_tempUnit),
+                initialValue: _tempUnit,
+                decoration: const InputDecoration(labelText: 'Birim', border: OutlineInputBorder()),
+                items: const [
+                  DropdownMenuItem(value: _TempUnit.c, child: Text('°C')),
+                  DropdownMenuItem(value: _TempUnit.f, child: Text('°F')),
+                ],
+                onChanged: (v) => setState(() => _tempUnit = v ?? _tempUnit),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 8),
-        _numField(_pressureCtrl, 'Basınç', suffix: 'hPa'),
+        Row(
+          children: [
+            Expanded(
+              child: _numField(
+                _pressureCtrl,
+                'Basınç',
+                suffix: switch (_pressureUnit) {
+                  _PressureUnit.hpa => 'hPa',
+                  _PressureUnit.inHg => 'inHg',
+                  _PressureUnit.mmHg => 'mmHg',
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 110,
+              child: DropdownButtonFormField<_PressureUnit>(
+                key: ValueKey(_pressureUnit),
+                initialValue: _pressureUnit,
+                decoration: const InputDecoration(labelText: 'Birim', border: OutlineInputBorder()),
+                items: const [
+                  DropdownMenuItem(value: _PressureUnit.hpa, child: Text('hPa')),
+                  DropdownMenuItem(value: _PressureUnit.inHg, child: Text('inHg')),
+                  DropdownMenuItem(value: _PressureUnit.mmHg, child: Text('mmHg')),
+                ],
+                onChanged: (v) => setState(() => _pressureUnit = v ?? _pressureUnit),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 8),
         _numField(_rhCtrl, 'Göreli nem', suffix: '%'),
         const SizedBox(height: 8),
         TextFormField(
           controller: _daCtrl,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(
-            labelText: 'Yoğunluk irtifa (opsiyonel, m)',
+          decoration: InputDecoration(
+            labelText:
+                'Yoğunluk irtifa (opsiyonel, ${_heightUnit == _LengthUnit.m ? 'm' : 'ft'})',
             helperText: 'Boş: P/T/nem; dolu: basınç ISA’dan türetilir',
           ),
         ),
         const SizedBox(height: 8),
-        _numField(
-          _elevDeltaCtrl,
-          'Hedef rakım farkı (hedef−atıcı, +yukarı)',
-          suffix: 'm',
+        Row(
+          children: [
+            Expanded(
+              child: _numField(
+                _elevDeltaCtrl,
+                'Hedef rakım farkı (hedef−atıcı, +yukarı)',
+                suffix: _heightUnit == _LengthUnit.m ? 'm' : 'ft',
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 110,
+              child: DropdownButtonFormField<_LengthUnit>(
+                key: ValueKey(_heightUnit),
+                initialValue: _heightUnit,
+                decoration: const InputDecoration(labelText: 'Yükseklik', border: OutlineInputBorder()),
+                items: const [
+                  DropdownMenuItem(value: _LengthUnit.m, child: Text('m')),
+                  DropdownMenuItem(value: _LengthUnit.ft, child: Text('ft')),
+                ],
+                onChanged: (v) => setState(() => _heightUnit = v ?? _heightUnit),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
-        _numField(_slopeCtrl, 'Eğim açısı (Δh yoksa)', suffix: '°'),
+        Row(
+          children: [
+            Expanded(
+              child: _numField(
+                _slopeCtrl,
+                'Eğim (Δh yoksa)',
+                suffix: _slopeUnit == _SlopeUnit.deg ? '°' : '%',
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 110,
+              child: DropdownButtonFormField<_SlopeUnit>(
+                key: ValueKey(_slopeUnit),
+                initialValue: _slopeUnit,
+                decoration: const InputDecoration(labelText: 'Eğim', border: OutlineInputBorder()),
+                items: const [
+                  DropdownMenuItem(value: _SlopeUnit.deg, child: Text('°')),
+                  DropdownMenuItem(value: _SlopeUnit.percent, child: Text('%')),
+                ],
+                onChanged: (v) => setState(() => _slopeUnit = v ?? _slopeUnit),
+              ),
+            ),
+          ],
+        ),
       ]),
       _strelokSection(context, 'RÜZGÂR', [
         SwitchListTile(
@@ -1192,6 +2114,123 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
         ] else
           _numField(_crossWindCtrl, 'Yan rüzgâr (+ sağa iter)', suffix: 'm/s'),
       ]),
+      _strelokSection(context, 'KAYITLI SAHNE PRESETLERİ', [
+        Text(
+          'Ortam, rüzgâr ve barut sıcaklığı eğrisi burada ve Silah sekmesinde doldurulur. '
+          'Aynı silahla farklı sahalarda farklı sahne kaydı seçin; silah profilinden bağımsızdır.',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(height: 1.35),
+        ),
+        const SizedBox(height: 8),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Tüm sahneleri göster'),
+          subtitle: Text(
+            'Kapalıyken: yalnızca genel veya şu anki silah defteri satırına bağlı sahneler.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          value: _showAllSceneBookEntries,
+          onChanged: (v) => setState(() => _showAllSceneBookEntries = v),
+        ),
+        const SizedBox(height: 6),
+        if (ShotScenePresetBookStore.entries.value.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'Henüz sahne yok. Ortam/rüzgâr/barutu doldurup «Sahneyi kaydet»e basın.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          )
+        else if (_visibleScenePresets().isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'Bu görünümde liste boş. «Tüm sahneleri göster» açın veya silah defterinden bir profil seçin.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.tertiary,
+                  ),
+            ),
+          ),
+        ..._visibleScenePresets().map((e) {
+          final curSid = ShotScenePresetBookStore.current.value?.id;
+          final selected =
+              (e.id.isNotEmpty && e.id == (_activeScenePresetId ?? curSid)) ||
+                  (_activeScenePresetId == null && e.id == curSid);
+          final sum = e.summaryLine;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Material(
+              color: selected
+                  ? Theme.of(context).colorScheme.secondaryContainer.withValues(alpha: 0.35)
+                  : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(8),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => unawaited(_applyBookSceneEntry(e)),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(e.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                          subtitle: Text(
+                            [
+                              if (e.linkedWeaponProfileId != null && e.linkedWeaponProfileId!.isNotEmpty)
+                                'Silah id: ${e.linkedWeaponProfileId}',
+                              ?sum,
+                            ].join('\n'),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Sil',
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () async {
+                          final ok = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Sahneyi sil'),
+                              content: Text('"${e.name}" silinsin mi?'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: const Text('İptal'),
+                                ),
+                                FilledButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: const Text('Sil'),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (ok == true && mounted) {
+                            await _deleteScenePresetEntry(e.id);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: _startNewScenePreset,
+          icon: const Icon(Icons.note_add_outlined),
+          label: const Text('Yeni sahne satırı'),
+        ),
+        const SizedBox(height: 8),
+        FilledButton.icon(
+          onPressed: _saveShotScenePreset,
+          icon: const Icon(Icons.save_outlined),
+          label: const Text('Sahneyi kaydet'),
+        ),
+      ]),
       _strelokSection(context, 'NİŞAN / KLİK', [
         Text(
           '${_sightHcmCtrl.text} cm · ${_zeroRangeCtrl.text} m · ${_clickUnit.label} ${_clickValueCtrl.text}',
@@ -1200,6 +2239,41 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
         TextButton(
           onPressed: () => setState(() => _tabController.index = 1),
           child: const Text('Nişan ve klik değerlerini düzenle'),
+        ),
+      ]),
+      _strelokSection(context, 'ATIŞ YOLU DOĞRULAMA (KLİK → MV / BC)', [
+        Text(
+          'Sahadaki dikey düzeltmeyi programa işleyin: ya çıkış hızını (Vo) ya da balistik katsayıyı (BC) '
+          'gözlenen düşüşe göre otomatik uyarlayın. Üstteki menzil ve Ana sekmedeki ortam değerleri kullanılır; '
+          'klik girdisi için «Silah» sekmesinde klik birimi/değeri doğru olmalıdır.',
+          style: tt.bodySmall?.copyWith(height: 1.35),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => unawaited(_truingDialog(initialTuneMv: true)),
+                icon: const Icon(Icons.speed, size: 20),
+                label: const Text('Vo (MV) truing'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => unawaited(_truingDialog(initialTuneMv: false)),
+                icon: const Icon(Icons.timeline, size: 20),
+                label: const Text('BC truing'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        OutlinedButton.icon(
+          onPressed: () => unawaited(_truingDialog()),
+          icon: const Icon(Icons.tune, size: 20),
+          label: const Text('İleri… (mil / MOA / klik seçimi)'),
+          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
         ),
       ]),
       Column(
@@ -1215,24 +2289,58 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
             ),
           ),
           const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _rangeTableDialog,
+            icon: const Icon(Icons.table_rows, size: 20),
+            label: const Text('Menzil tablosu'),
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
+          ),
+          const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _truingDialog,
-                  icon: const Icon(Icons.auto_fix_high, size: 20),
-                  label: const Text('Truing BC'),
+                  onPressed: () => unawaited(_captureProfileCompareRef()),
+                  icon: const Icon(Icons.flag_outlined, size: 20),
+                  label: const Text('Referans'),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _rangeTableDialog,
-                  icon: const Icon(Icons.table_rows, size: 20),
-                  label: const Text('Tablo'),
+                  onPressed: _profileCompareRef == null
+                      ? null
+                      : () => unawaited(_compareProfilesDialog()),
+                  icon: const Icon(Icons.compare_arrows, size: 20),
+                  label: const Text('Karşılaştır'),
                 ),
               ),
             ],
+          ),
+          if (_profileCompareSummary.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Kayıtlı referans: $_profileCompareSummary',
+                    style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => unawaited(_clearProfileCompareRef()),
+                  child: const Text('Sil'),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => unawaited(_batchRangeListDialog()),
+            icon: const Icon(Icons.format_list_numbered, size: 20),
+            label: const Text('Menzil listesi (toplu)'),
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
           ),
         ],
       ),
@@ -1282,6 +2390,51 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
       Text(
         'Silah, dürbün ve kartuş seçimi; çıkış hızı, BC, nişan yüksekliği ve sıfır bu sekmede.',
         style: tt.bodySmall?.copyWith(height: 1.4),
+      ),
+      const SizedBox(height: 4),
+      Text(
+        'Preset sürümü: $_activePresetVersion · kaynak: $_activePresetSource',
+        style: tt.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+      ),
+      if (_previousPresetManifest != null) ...[
+        const SizedBox(height: 2),
+        Text(
+          'Geri alınabilir: ${_previousPresetManifest!.dataVersion} · ${_previousPresetManifest!.source}',
+          style: tt.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.85),
+          ),
+        ),
+      ],
+      const SizedBox(height: 8),
+      Align(
+        alignment: Alignment.centerRight,
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          alignment: WrapAlignment.end,
+          children: [
+            OutlinedButton.icon(
+              onPressed: (_previousPresetManifest == null || _isUpdatingRemotePresets)
+                  ? null
+                  : () => unawaited(_rollbackBallisticPresets()),
+              icon: const Icon(Icons.undo),
+              label: const Text('Önceki sürüm'),
+            ),
+            OutlinedButton.icon(
+              onPressed: _isUpdatingRemotePresets
+                  ? null
+                  : () => unawaited(_updateBallisticPresetsFromRemote()),
+              icon: _isUpdatingRemotePresets
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.cloud_download_outlined),
+              label: Text(_isUpdatingRemotePresets ? 'Güncelleniyor...' : 'Preset güncelle'),
+            ),
+          ],
+        ),
       ),
       spacing,
       _strelokSection(context, 'SEÇİM', [
@@ -1417,6 +2570,11 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
           });
         },
       ),
+      const SizedBox(height: 6),
+      Text(
+        'G1/G7 dışı model için: Balistik Ekler > Özel sürüklenme i(Mach) tablosu.',
+        style: Theme.of(context).textTheme.bodySmall,
+      ),
       const SizedBox(height: 8),
       _numField(_mvCtrl, 'Çıkış hızı (m/s - tablo öncesi)', suffix: 'm/s'),
       const SizedBox(height: 8),
@@ -1426,6 +2584,27 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
       _numField(_sightHcmCtrl, 'Dürbün ekseni yüksekliği (sight height)', suffix: 'cm'),
       const SizedBox(height: 8),
       _numField(_zeroRangeCtrl, 'Sıfırlama menzili', suffix: 'm'),
+      ]),
+      _strelokSection(context, 'NAMLU / SPİN', [
+      Text(
+        'Hatve ve mermi verileri profilde saklanır. Spin drift hesabı için «Balistik Ekler» '
+        'sekmesinde «Spin drift» anahtarını açın.',
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(height: 1.35),
+      ),
+      const SizedBox(height: 8),
+      SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        title: const Text('Sağ el twist (RH)'),
+        subtitle: const Text('Kapalıysa sol el (LH)'),
+        value: _twistRightHanded,
+        onChanged: (v) => setState(() => _twistRightHanded = v),
+      ),
+      const SizedBox(height: 4),
+      _numField(_twistInCtrl, 'Namlu hatve (in/tur)', suffix: 'in/tur', allowEmpty: true),
+      const SizedBox(height: 8),
+      _numField(_grainCtrl, 'Mermi ağırlığı (spin için)', suffix: 'gr', allowEmpty: true),
+      const SizedBox(height: 8),
+      _numField(_calInCtrl, 'Mermi çapı', suffix: 'in', allowEmpty: true),
       ]),
       _strelokSection(context, 'BARUT SICAKLIĞI → Vo', [
       Row(
@@ -1445,6 +2624,129 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
       ),
       const SizedBox(height: 8),
       _looseField(_powderCurTCtrl, 'Şu an barut sıcaklığı °C (boş: hava sıcaklığı)'),
+      const SizedBox(height: 10),
+      OutlinedButton.icon(
+        onPressed: _saveShotScenePreset,
+        icon: const Icon(Icons.save_outlined),
+        label: const Text('Sahneyi kaydet (Ana sekmeyle aynı)'),
+      ),
+      ]),
+      _strelokSection(context, 'KAYITLI SİLAH PROFİLLERİ (DEFTER)', [
+        Text(
+          'Katalogdaki her silah çeşidi için ayrı satır kaydedebilirsiniz. Üstte «Silah çeşidi»ni '
+          'seçtikten sonra değerleri girip «Profili kaydet» — kayıt o silaha bağlanır. '
+          'Listeden dokunarak forma ve katalog seçimine yüklenir.',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(height: 1.35),
+        ),
+        const SizedBox(height: 8),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Tüm silahların kayıtlarını göster'),
+          subtitle: Text(
+            _selectedWeapon == null
+                ? 'Kapalıyken: yalnızca silaha bağlı olmayan genel satırlar.'
+                : 'Kapalıyken: seçili silah + genel satırlar; seçili olmayanlar gizlenir.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          value: _showAllWeaponBookEntries,
+          onChanged: (v) => setState(() => _showAllWeaponBookEntries = v),
+        ),
+        const SizedBox(height: 6),
+        if (WeaponProfileBookStore.entries.value.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'Defterde kayıt yok. Silah çeşidini seçip alttaki «Profili kaydet» ile ekleyin.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          )
+        else if (_visibleBookProfiles().isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'Bu görünümde liste boş. Üstten silah seçin, «Tüm silahlar» anahtarını açın veya '
+              'yeni kayıt ekleyin.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.tertiary,
+                  ),
+            ),
+          ),
+        ..._visibleBookProfiles().map((e) {
+          final curId = WeaponProfileStore.current.value?.id;
+          final selected =
+              (e.id.isNotEmpty && e.id == (_activeBookProfileId ?? curId)) ||
+                  (_activeBookProfileId == null && e.id == curId);
+          final coriolisLine = _bookCoriolisSummaryLine(e);
+          final spinLine = _bookSpinSummaryLine(e);
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Material(
+              color: selected
+                  ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.35)
+                  : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(8),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => unawaited(_applyBookProfileEntry(e)),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(e.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                          subtitle: Text(
+                            '${_bookEntryCatalogSubtitle(e)}\n'
+                            '${coriolisLine != null ? '$coriolisLine\n' : ''}'
+                            '${spinLine != null ? '$spinLine\n' : ''}'
+                            'Vo ${e.muzzleVelocityMps.toStringAsFixed(0)} m/s · '
+                            'BC ${e.displayBallisticCoefficient.toStringAsFixed(3)} (${e.bcKind.label}) · '
+                            '${e.zeroRangeM.toStringAsFixed(0)} m sıfır',
+                            maxLines: 5,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Sil',
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () async {
+                          final ok = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Profili sil'),
+                              content: Text('"${e.name}" defterden silinsin mi?'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: const Text('İptal'),
+                                ),
+                                FilledButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: const Text('Sil'),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (ok == true && mounted) {
+                            await _deleteBookProfileEntry(e.id);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }),
+        const SizedBox(height: 6),
+        OutlinedButton.icon(
+          onPressed: _startNewBookProfile,
+          icon: const Icon(Icons.note_add_outlined),
+          label: const Text('Yeni profil (ayrı kayıt satırı)'),
+        ),
       ]),
       _strelokSection(context, 'OPTİK / KLİK', [
       DropdownButtonFormField<ClickUnit>(
@@ -1456,6 +2758,11 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
       ),
       const SizedBox(height: 8),
       _numField(_clickValueCtrl, 'Klik değeri'),
+      const SizedBox(height: 8),
+      Text(
+        'Namlu hatve ve mermi alanları «Silah ve mühimmat» sekmesindeki «NAMLU / SPİN» bölümündedir.',
+        style: Theme.of(context).textTheme.bodySmall,
+      ),
       const SizedBox(height: 12),
       FilledButton.icon(
         onPressed: _saveWeaponProfile,
@@ -1491,22 +2798,10 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
       SwitchListTile(
         contentPadding: EdgeInsets.zero,
         title: const Text('Spin drift (Miller kabaca)'),
+        subtitle: const Text('Hatve / mermi: Silah ve mühimmat → NAMLU / SPİN'),
         value: _spinOn,
         onChanged: (v) => setState(() => _spinOn = v),
       ),
-      if (_spinOn) ...[
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Sağ el twist'),
-          value: _twistRightHanded,
-          onChanged: (v) => setState(() => _twistRightHanded = v),
-        ),
-        _numField(_grainCtrl, 'Mermi ağırlığı', suffix: 'gr'),
-        spacing,
-        _numField(_calInCtrl, 'Kalibre', suffix: 'in'),
-        spacing,
-        _numField(_twistInCtrl, 'Bir tur (namlu)', suffix: 'in'),
-      ],
       SwitchListTile(
         contentPadding: EdgeInsets.zero,
         title: const Text('Aerodynamic jump (yan rüzgârla dikey)'),
@@ -1561,6 +2856,23 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
       Text(
         'Düzen seçin; FFP/SFP ve büyütme değerleri tutmayı etkiler.',
         style: tt.bodySmall?.copyWith(height: 1.4),
+      ),
+      const SizedBox(height: 8),
+      SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        title: const Text('Dürbün seçimine göre önizlemeyi güncelle'),
+        subtitle: Text(
+          'Açıkken «Silah ve mühimmat» sekmesinde dürbün değiştirildiğinde burada eşlenen '
+          'parametrik taksimat yüklenir. Gösterim üreticinin resmi çizimi değildir; mil/MOA tutması hesapla uyumludur.',
+          style: tt.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+        ),
+        value: _autoReticleFromScope,
+        onChanged: (v) async {
+          setState(() => _autoReticleFromScope = v);
+          if (v && _selectedScope != null) {
+            await _syncReticleFromScope(_selectedScope!);
+          }
+        },
       ),
       spacing,
       _strelokSection(context, 'RETİKÜL', [
@@ -1784,6 +3096,7 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
     String label, {
     String? suffix,
     bool numeric = true,
+    bool allowEmpty = false,
     TextStyle? style,
     TextAlign textAlign = TextAlign.start,
   }) {
@@ -1800,6 +3113,7 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
         border: const OutlineInputBorder(),
       ),
       validator: (value) {
+        if (allowEmpty && (value == null || value.trim().isEmpty)) return null;
         if (value == null || value.trim().isEmpty) return 'Boş olamaz';
         if (numeric) {
           final v = double.tryParse(value.replaceAll(',', '.'));

@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/reticles/reticle_definition.dart';
 import 'reticle_canvas_painter.dart';
+import 'reticle_preview_backdrop.dart';
 
 /// Dürbün / hedef fotoğrafı üzerinde retikül + tutma (StreLok tarzı hizalama).
 class ReticlePhotoSection extends StatefulWidget {
@@ -31,7 +32,7 @@ class _ReticlePhotoSectionState extends State<ReticlePhotoSection> {
   double _scale = 1.0;
   double _dx = 0;
   double _dy = 0;
-  double _photoOpacity = 0.55;
+  double _photoOpacity = 1.0;
 
   Future<void> _pick() async {
     final x = await ImagePicker().pickImage(source: ImageSource.gallery);
@@ -108,7 +109,7 @@ class _ReticlePhotoSectionState extends State<ReticlePhotoSection> {
           Slider(
             label: _photoOpacity.toStringAsFixed(2),
             value: _photoOpacity,
-            min: 0.15,
+            min: 0.25,
             max: 1.0,
             onChanged: (v) => setState(() => _photoOpacity = v),
           ),
@@ -141,11 +142,29 @@ class _ReticlePhotoSectionState extends State<ReticlePhotoSection> {
                         ),
                       )
                     else
-                      ColoredBox(
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                        child: const Center(
-                          child: Text('Foto yok — genel önizleme', textAlign: TextAlign.center),
-                        ),
+                      Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          const ReticlePreviewBackdrop(),
+                          Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Text(
+                                'Foto yok — saha benzeri önizleme\n«Foto seç» ile net görüntü ekleyin',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white.withValues(alpha: 0.92),
+                                  shadows: const [
+                                    Shadow(blurRadius: 6, color: Color(0x66000000)),
+                                    Shadow(blurRadius: 2, offset: Offset(0, 1), color: Color(0x99000000)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     CustomPaint(
                       painter: ReticleCanvasPainter(

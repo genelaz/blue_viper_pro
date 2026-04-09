@@ -7,13 +7,34 @@ import 'package:vector_tile/vector_tile.dart';
 import 'mbtiles_mvt_codec.dart';
 import 'mbtiles_raw_tile_reader.dart';
 
-/// Tek MVT poligonu: dış halka + isteğe bağlı delikler (WGS84).
-class MbtilesVectorPolygonPatch {
-  MbtilesVectorPolygonPatch({required this.outer, List<List<LatLng>>? holes})
-      : holes = holes ?? const [];
+/// Tek MVT poligonu: dış halka + isteğe bağlı delikler (WGS84) + önizleme renkleri.
+///
+/// Renkler tam opaklıkta (0xAARRGGBB); harita katmanı üstte kullanıcı opaklığı ile çarpar.
+class MbtilesVectorStyledPolygonPatch {
+  MbtilesVectorStyledPolygonPatch({
+    required this.outer,
+    List<List<LatLng>>? holes,
+    required this.fillArgb,
+    required this.borderArgb,
+  }) : holes = holes ?? const [];
 
   final List<LatLng> outer;
   final List<List<LatLng>> holes;
+  final int fillArgb;
+  final int borderArgb;
+}
+
+/// MVT çizgisi + önizleme rengi ve kalınlığı (MapLibre Style Spec değil; sezgisel palet).
+class MbtilesVectorStyledLine {
+  MbtilesVectorStyledLine({
+    required this.points,
+    required this.strokeArgb,
+    required this.strokeWidth,
+  });
+
+  final List<LatLng> points;
+  final int strokeArgb;
+  final double strokeWidth;
 }
 
 /// MVT özelliklerinden türetilen basit harita etiketi (MapLibre yazı stili değil).
@@ -33,8 +54,8 @@ class MbtilesVectorOverlayData {
     required this.labels,
   });
 
-  final List<List<LatLng>> lineSegments;
-  final List<MbtilesVectorPolygonPatch> polygonPatches;
+  final List<MbtilesVectorStyledLine> lineSegments;
+  final List<MbtilesVectorStyledPolygonPatch> polygonPatches;
   /// MVT Point / MultiPoint merkezleri (WGS84).
   final List<LatLng> points;
   /// `name` / `ref` vb. alanlardan; en fazla [MbtilesVectorOverlayBuilder.overlayForBounds] `maxLabels`.
@@ -75,6 +96,144 @@ class MbtilesVectorOverlayBuilder {
     }
     return null;
   }
+
+  static const int _kDefaultLineArgb = 0xFF8EB4D8;
+  static const double _kDefaultLineWidth = 1.35;
+  static const int _kDefaultFillArgb = 0xFF4A6FA5;
+  static const int _kDefaultBorderArgb = 0xFF8EB4D8;
+
+  static String? _propLower(Map<String, VectorTileValue>? props, String key) {
+    if (props == null) return null;
+    final v = props[key];
+    if (v == null) return null;
+    final s = _displayStringFromValue(v);
+    if (s == null || s.isEmpty) return null;
+    return s.toLowerCase();
+  }
+
+  /// OpenMapTiles benzeri katman + `class` için önizleme çizgi rengi ve kalınlığı.
+  static ({int strokeArgb, double strokeWidth}) _linePaintForFeature(
+    String layerName,
+    Map<String, VectorTileValue>? props,
+  ) {
+    final ln = layerName.toLowerCase();
+    final cls = _propLower(props, 'class') ?? '';
+
+    if (ln.contains('waterway')) {
+      final w = (cls == 'river' || cls == 'canal' || cls == 'dock') ? 2.4 : 1.65;
+      return (strokeArgb: 0xFF3580C4, strokeWidth: w);
+    }
+
+    if (ln.contains('transportation') && !ln.contains('name')) {
+      if (cls == 'motorway' || cls == 'trunk') {
+        return (strokeArgb: 0xFFE8504E, strokeWidth: 3.4);
+      }
+      if (cls == 'primary') {
+        return (strokeArgb: 0xFFF5A623, strokeWidth: 2.9);
+      }
+      if (cls == 'secondary' || cls == 'tertiary') {
+        return (strokeArgb: 0xFFF8F8F7, strokeWidth: 2.35);
+      }
+      if (cls == 'minor' || cls == 'bus_guideway') {
+        return (strokeArgb: 0xFFECEAE8, strokeWidth: 1.88);
+      }
+      if (cls == 'path' || cls == 'footway' || cls == 'pedestrian' || cls == 'steps') {
+        return (strokeArgb: 0xFFCFCDCA, strokeWidth: 1.15);
+      }
+      if (cls == 'track' || cls == 'cycleway' || cls == 'bridleway') {
+        return (strokeArgb: 0xFFB8B4AE, strokeWidth: 1.28);
+      }
+      if (cls == 'service' || cls == 'driveway') {
+        return (strokeArgb: 0xFFD8D6D4, strokeWidth: 1.45);
+      }
+      if (cls == 'rail') {
+        return (strokeArgb: 0xFF707070, strokeWidth: 1.65);
+      }
+      return (strokeArgb: 0xFFE8E6E4, strokeWidth: 1.78);
+    }
+
+    if (ln.contains('boundary')) {
+      return (strokeArgb: 0xFF8E44AD, strokeWidth: 1.05);
+    }
+
+    if (ln.contains('aeroway') && !ln.contains('name')) {
+      return (strokeArgb: 0xFF9A9690, strokeWidth: 1.55);
+    }
+
+    return (strokeArgb: _kDefaultLineArgb, strokeWidth: _kDefaultLineWidth);
+  }
+
+  /// OpenMapTiles benzeri katman + `class` için önizleme dolgu ve sınır rengi.
+  static ({int fillArgb, int borderArgb}) _polygonPaintForFeature(
+    String layerName,
+    Map<String, VectorTileValue>? props,
+  ) {
+    final ln = layerName.toLowerCase();
+    final cls = _propLower(props, 'class') ?? '';
+
+    if (ln == 'water' || (ln.contains('water') && !ln.contains('waterway'))) {
+      return (fillArgb: 0xFF4A90D9, borderArgb: 0xFF3580C4);
+    }
+
+    if (ln.contains('park') && !ln.contains('name')) {
+      return (fillArgb: 0xFF6BAE54, borderArgb: 0xFF4E8A3C);
+    }
+
+    if (ln.contains('landcover')) {
+      if (cls == 'wood' || cls == 'forest' || cls == 'tree' || cls == 'scrub') {
+        return (fillArgb: 0xFF3D6B32, borderArgb: 0xFF2D5016);
+      }
+      if (cls == 'grass' || cls == 'farmland' || cls == 'meadow' || cls == 'recreation_ground') {
+        return (fillArgb: 0xFFADD89F, borderArgb: 0xFF7CB86E);
+      }
+      if (cls == 'ice' || cls == 'glacier') {
+        return (fillArgb: 0xFFB8D4E8, borderArgb: 0xFF8EB4D0);
+      }
+    }
+
+    if (ln.contains('landuse')) {
+      if (cls == 'forest') {
+        return (fillArgb: 0xFF4A7C43, borderArgb: 0xFF355A30);
+      }
+      if (cls == 'park' || cls == 'grass' || cls == 'recreation_ground' || cls == 'cemetery') {
+        return (fillArgb: 0xFF7CB87A, borderArgb: 0xFF5A9A58);
+      }
+      if (cls == 'industrial' || cls == 'commercial' || cls == 'retail') {
+        return (fillArgb: 0xFFD0C0C8, borderArgb: 0xFFB0A0A8);
+      }
+      if (cls == 'residential') {
+        return (fillArgb: 0xFFE8E4E0, borderArgb: 0xFFC8C4C0);
+      }
+    }
+
+    if (ln.contains('building')) {
+      return (fillArgb: 0xFFC9C5C2, borderArgb: 0xFF9E9A96);
+    }
+
+    if (ln.contains('aeroway') && !ln.contains('name')) {
+      return (fillArgb: 0xFFE6E2DC, borderArgb: 0xFFBDB5A8);
+    }
+
+    if (ln.contains('pitch') || ln.contains('stadium') || (ln.contains('sport') && ln.contains('leisure'))) {
+      return (fillArgb: 0xFF7CB87A, borderArgb: 0xFF5A9A58);
+    }
+
+    return (fillArgb: _kDefaultFillArgb, borderArgb: _kDefaultBorderArgb);
+  }
+
+  @visibleForTesting
+  static ({int strokeArgb, double strokeWidth}) previewLineStyleForTest(
+    String layerName,
+    Map<String, VectorTileValue>? props,
+  ) =>
+      _linePaintForFeature(layerName, props);
+
+  @visibleForTesting
+  static ({int fillArgb, int borderArgb}) previewPolygonStyleForTest(
+    String layerName,
+    Map<String, VectorTileValue>? props,
+  ) =>
+      _polygonPaintForFeature(layerName, props);
 
   /// Yaklaşık 50–60 m hücre + metin ile aynı yerde tekrarlayan etiketleri azaltır.
   static String _labelDedupeKey(LatLng p, String text) {
@@ -278,17 +437,16 @@ class MbtilesVectorOverlayBuilder {
     ];
   }
 
-  static void _addLineString(List<List<LatLng>> polylines, List<List<double>> coords) {
-    if (coords.length < 2) return;
-    polylines.add(_ringToLatLngs(coords));
-  }
-
-  static void _collectFromGeometry(
+  static void _collectFromFeature(
     Geometry geom,
-    List<List<LatLng>> lineSegments,
-    List<MbtilesVectorPolygonPatch> polygons,
+    List<MbtilesVectorStyledLine> lineSegments,
+    List<MbtilesVectorStyledPolygonPatch> polygons,
     List<LatLng> points,
+    String layerName,
+    Map<String, VectorTileValue>? props,
   ) {
+    final linePaint = _linePaintForFeature(layerName, props);
+    final polyPaint = _polygonPaintForFeature(layerName, props);
     switch (geom.type) {
       case GeometryType.Point:
         if (points.length >= maxOverlayPoints) break;
@@ -302,11 +460,23 @@ class MbtilesVectorOverlayBuilder {
         }
         break;
       case GeometryType.LineString:
-        _addLineString(lineSegments, (geom as GeometryLineString).coordinates);
+        final coords = (geom as GeometryLineString).coordinates;
+        if (coords.length >= 2) {
+          lineSegments.add(MbtilesVectorStyledLine(
+            points: _ringToLatLngs(coords),
+            strokeArgb: linePaint.strokeArgb,
+            strokeWidth: linePaint.strokeWidth,
+          ));
+        }
         break;
       case GeometryType.MultiLineString:
         for (final line in (geom as GeometryMultiLineString).coordinates) {
-          _addLineString(lineSegments, line);
+          if (line.length < 2) continue;
+          lineSegments.add(MbtilesVectorStyledLine(
+            points: _ringToLatLngs(line),
+            strokeArgb: linePaint.strokeArgb,
+            strokeWidth: linePaint.strokeWidth,
+          ));
         }
         break;
       case GeometryType.Polygon:
@@ -319,7 +489,12 @@ class MbtilesVectorOverlayBuilder {
             for (var i = 1; i < rings.length; i++)
               if (_ringToLatLngs(rings[i]).length >= 3) _ringToLatLngs(rings[i]),
           ];
-          polygons.add(MbtilesVectorPolygonPatch(outer: outer, holes: holes));
+          polygons.add(MbtilesVectorStyledPolygonPatch(
+            outer: outer,
+            holes: holes,
+            fillArgb: polyPaint.fillArgb,
+            borderArgb: polyPaint.borderArgb,
+          ));
         }
         break;
       case GeometryType.MultiPolygon:
@@ -332,7 +507,12 @@ class MbtilesVectorOverlayBuilder {
             for (var i = 1; i < polyRings.length; i++)
               if (_ringToLatLngs(polyRings[i]).length >= 3) _ringToLatLngs(polyRings[i]),
           ];
-          polygons.add(MbtilesVectorPolygonPatch(outer: outer, holes: holes));
+          polygons.add(MbtilesVectorStyledPolygonPatch(
+            outer: outer,
+            holes: holes,
+            fillArgb: polyPaint.fillArgb,
+            borderArgb: polyPaint.borderArgb,
+          ));
         }
         break;
       case null:
@@ -350,8 +530,8 @@ class MbtilesVectorOverlayBuilder {
     int maxTiles = 28,
     int maxLabels = 32,
   }) {
-    final lineSegments = <List<LatLng>>[];
-    final polygonPatches = <MbtilesVectorPolygonPatch>[];
+    final lineSegments = <MbtilesVectorStyledLine>[];
+    final polygonPatches = <MbtilesVectorStyledPolygonPatch>[];
     final points = <LatLng>[];
     final labelBucket = <({int priority, MbtilesVectorMapLabel label})>[];
     final labelDedupe = <String>{};
@@ -383,7 +563,14 @@ class MbtilesVectorOverlayBuilder {
           if (fj == null) continue;
           final g = fj.geometry;
           if (g == null) continue;
-          _collectFromGeometry(g, lineSegments, polygonPatches, points);
+          _collectFromFeature(
+            g,
+            lineSegments,
+            polygonPatches,
+            points,
+            layer.name,
+            fj.properties,
+          );
           _offerRankedMapLabel(labelBucket, labelDedupe, maxLabels, fj.properties, g, layer.name);
         }
       }

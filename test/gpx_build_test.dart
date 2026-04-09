@@ -99,4 +99,14 @@ void main() {
     expect(xml.split('<rte>').length - 1, 2);
     expect(xml.split('<trk>').length - 1, 1);
   });
+
+  test('buildGpxDocument waypoint description emits desc', () {
+    final xml = buildGpxDocument(
+      name: 'W',
+      waypoints: [('N1', LatLng(1.5, 2.25), 'Line1\nLine2')],
+    );
+    expect(xml, contains('<name>N1</name>'));
+    expect(xml, contains('<desc>Line1'));
+    expect(xml, contains('Line2</desc>'));
+  });
 }

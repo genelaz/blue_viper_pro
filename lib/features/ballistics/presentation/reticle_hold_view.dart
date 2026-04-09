@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/reticles/reticle_definition.dart';
 import 'reticle_canvas_painter.dart';
+import 'reticle_preview_backdrop.dart';
 
 /// Katalogdan seçilen parametrik retikül + tutma (mil veya MOA, retikül birimine göre).
 class ReticleHoldView extends StatelessWidget {
@@ -77,28 +78,47 @@ class ReticleHoldView extends StatelessWidget {
             SizedBox(
               width: s,
               height: s,
-              child: CustomPaint(
-                painter: ReticleCanvasPainter(
-                  def: def,
-                  holdUpUnits: _holdUp,
-                  holdLeftUnits: _holdLeft,
-                  unitIsMoa: def.unit == 'moa',
-                ),
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: Padding(
-                    padding: const EdgeInsets.all(6),
-                    child: Text(
-                      'Tutma (${def.unit}): ↑ ${_holdUp.toStringAsFixed(2)}  '
-                      '← ${_holdLeft.toStringAsFixed(2)}  '
-                      '(${firstFocalPlane ? 'FFP' : 'SFP ×${_scale.toStringAsFixed(2)}'})',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    const ReticlePreviewBackdrop(),
+                    CustomPaint(
+                      painter: ReticleCanvasPainter(
+                        def: def,
+                        holdUpUnits: _holdUp,
+                        holdLeftUnits: _holdLeft,
+                        unitIsMoa: def.unit == 'moa',
+                      ),
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: Padding(
+                          padding: const EdgeInsets.all(6),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.72),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                              child: Text(
+                                'Tutma (${def.unit}): ↑ ${_holdUp.toStringAsFixed(2)}  '
+                                '← ${_holdLeft.toStringAsFixed(2)}  '
+                                '(${firstFocalPlane ? 'FFP' : 'SFP ×${_scale.toStringAsFixed(2)}'})',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Theme.of(context).colorScheme.onSurface,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ),

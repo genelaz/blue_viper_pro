@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:archive/archive.dart';
 import 'package:blue_viper_pro/core/geo/gpx_kml_codec.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
@@ -6,7 +9,7 @@ void main() {
   test('buildKmlMapExport roundtrips polygons via parseKmlPlacemarks', () {
     final kml = buildKmlMapExport(
       documentName: 'T',
-      waypoints: [('X', LatLng(1, 2))],
+      waypoints: [('X', LatLng(1, 2), null)],
       routeLine: [LatLng(0, 0), LatLng(1, 1)],
       polygons: [
         (
@@ -37,6 +40,7 @@ void main() {
     final r = parseKmlPlacemarks(kml);
     expect(r.hasNetworkLink, isFalse);
     expect(r.points.length, 1);
+    expect(r.points.single.iconColorArgb, 0xFFFF9800); // `bv_wpt` IconStyle ff0098ff (aabbggrr)
     expect(r.lines.length, 1);
     expect(r.polygonPatches.length, 1);
     expect(r.polygonPatches.single.holes.length, 1);
@@ -146,7 +150,7 @@ void main() {
   test('encodeKmzFromKml puts doc.kml and roundtrips parse', () {
     final kml = buildKmlMapExport(
       documentName: 'Z',
-      waypoints: [('W', LatLng(3, 4))],
+      waypoints: [('W', LatLng(3, 4), null)],
       routeLine: [LatLng(5, 5), LatLng(6, 6)],
     );
     final kmz = encodeKmzFromKml(kml);
@@ -156,6 +160,32 @@ void main() {
     final r = parseKmlPlacemarks(extracted.single);
     expect(r.hasNetworkLink, isFalse);
     expect(r.points.length, 1);
+    expect(r.points.single.iconColorArgb, 0xFFFF9800);
     expect(r.lines.length, 1);
+  });
+
+  test('parseKmlPlacemarks loads Icon href from KMZ embedded files map', () {
+    const kml = '''
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2"><Document>
+  <Style id="s1">
+    <IconStyle><Icon><href>files/dot.png</href></Icon></IconStyle>
+  </Style>
+  <Placemark><name>P</name><styleUrl>#s1</styleUrl>
+  <Point><coordinates>5,10,0</coordinates></Point></Placemark>
+</Document></kml>''';
+    final png = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+    );
+    final arch = Archive()
+      ..add(ArchiveFile.string('doc.kml', kml))
+      ..add(ArchiveFile('files/dot.png', png.length, png));
+    final kmzBytes = ZipEncoder().encode(arch);
+    final files = decodeKmzEmbeddedFiles(kmzBytes);
+    final r = parseKmlPlacemarks(kml, kmzEmbeddedFiles: files);
+    expect(r.points.single.iconImageBytes, isNotNull);
+    expect(r.points.single.iconImageBytes!.length, greaterThan(30));
+    expect(r.points.single.iconHref, isNull);
+    expect(r.points.single.point, const LatLng(10, 5));
   });
 }

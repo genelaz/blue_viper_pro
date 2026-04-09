@@ -18,6 +18,31 @@ class WeaponBallisticPreset {
     this.ammoVariantId,
     this.scopeCatalogId,
   });
+
+  Map<String, dynamic> toMap() => {
+        'muzzleVelocityMps': muzzleVelocityMps,
+        'ballisticCoefficientG1': ballisticCoefficientG1,
+        if (ballisticCoefficientG7 != null) 'ballisticCoefficientG7': ballisticCoefficientG7,
+        if (ammoCatalogId != null) 'ammoCatalogId': ammoCatalogId,
+        if (ammoVariantId != null) 'ammoVariantId': ammoVariantId,
+        if (scopeCatalogId != null) 'scopeCatalogId': scopeCatalogId,
+      };
+
+  factory WeaponBallisticPreset.fromMap(Map<String, dynamic> map) {
+    final mv = (map['muzzleVelocityMps'] as num?)?.toDouble();
+    final bc1 = (map['ballisticCoefficientG1'] as num?)?.toDouble();
+    if (mv == null || bc1 == null) {
+      throw const FormatException('muzzleVelocityMps ve ballisticCoefficientG1 zorunludur');
+    }
+    return WeaponBallisticPreset(
+      muzzleVelocityMps: mv,
+      ballisticCoefficientG1: bc1,
+      ballisticCoefficientG7: (map['ballisticCoefficientG7'] as num?)?.toDouble(),
+      ammoCatalogId: map['ammoCatalogId'] as String?,
+      ammoVariantId: map['ammoVariantId'] as String?,
+      scopeCatalogId: map['scopeCatalogId'] as String?,
+    );
+  }
 }
 
 /// Silah [WeaponType.id] → ön ayar.

@@ -1,5 +1,105 @@
 import 'package:flutter/material.dart';
 
+/// Ürün yol haritası — sabit **8 paket** (Eksikler özeti ve numaralı maddeler bununla uyumludur).
+class MapRoadmapPackage {
+  const MapRoadmapPackage({
+    required this.id,
+    required this.sectionTitle,
+    required this.headline,
+    required this.description,
+  });
+
+  final int id;
+  final String sectionTitle;
+  final String headline;
+  final String description;
+
+  String get compareLine => '$headline — $description';
+}
+
+const List<MapRoadmapPackage> kMapRoadmapPackages = [
+  MapRoadmapPackage(
+    id: 1,
+    sectionTitle: 'MGRS & UTM Harita (mobil)',
+    headline: 'KML tam Google Earth uyumu (kalan)',
+    description:
+        'Çizgi / alan + nokta: `Style` / `StyleMap` (dokununca highlight ikon), `IconStyle`, '
+        '`hotSpot`, KMZ / yerel / `http`·`https` raster ikon, HTML balon → düz metin ipucu, '
+        r'`BalloonStyle` $[name] / $[description]. '
+        'Eksik: Google Earth gömülü sembol kütüphanesi ve zengin HTML balon (CSS, gömülü içerik); '
+        'Android’de `http` ikon için cleartext ağı gerekebilir.',
+  ),
+  MapRoadmapPackage(
+    id: 2,
+    sectionTitle: 'MGRS & UTM Harita (mobil)',
+    headline: 'NTv2 ve kurumsal datum',
+    description:
+        'Kurumsal EPSG kayıt tabanından otomatik `.gsb` indirme / eşleme yok; kullanıcı dosyayı '
+        'sağlar. Izgara WGS84 kapsamı HUD ve ayrıntılarda özetlenir; konum kapsam dışındayken '
+        'kayma uygulanmaz (uyarı gösterilir).',
+  ),
+  MapRoadmapPackage(
+    id: 3,
+    sectionTitle: 'MGRS & UTM Harita (mobil)',
+    headline: 'Vektör MBTiles (MapLibre / Style Spec)',
+    description:
+        'İsteğe bağlı MapLibre motoru (vektör MBTiles ayrıntıları): iOS/Android’de yerel '
+        'MapLibre SDK; çevrimiçi OpenFreeMap Liberty stil JSON’u alınır, `openmaptiles` kaynağı '
+        'yerel `.mbtiles` ile değiştirilir — sprite, glif, yerleşimli etiketler ve Style Spec native '
+        'motor tarafından işlenir. macOS/Windows’ta deneysel WebView (`maplibre-gl-js`); '
+        '`mbtiles://` ve tam özellik eşlemesi mobil native ile birebir olmayabilir. '
+        'MapLibre açıkken GeoPDF JPEG üst katman, hillshade ve bazı `flutter_map` özel katmanları '
+        'hâlâ kısmi veya yok; tam görünüm için klasik önizleme motoruna geçilebilir.',
+  ),
+  MapRoadmapPackage(
+    id: 4,
+    sectionTitle: 'CAS — Coğrafi Analiz Sistemi (HGK)',
+    headline: 'Tehdit ve 3B görüş modeli',
+    description:
+        'Tehdit tüpü, 3B küre ve tam tehdit/görüş modellemesi yok. «Basit LOS»: gözlem/hedef yüksekliği, '
+        'ayarlanabilir DEM örnek sayısı (profil/harita çözünürlüğü vs ağ), «Haritada göster» ile yeşil/kırmızı '
+        'segment ve engel noktası; ayrıca MVP tehdit tüpü koridoru (pim 1–2 hattı etrafında) ve JSON tabanlı '
+        'CAS 3B paket yükleme (threat tube footprint). '
+        'Tam 3B tehdit modeli ve kurumsal CAS analitiği henüz yok.',
+  ),
+  MapRoadmapPackage(
+    id: 5,
+    sectionTitle: 'CAS — Coğrafi Analiz Sistemi (HGK)',
+    headline: 'Kurumsal CAS veri bağlantısı',
+    description:
+        'Kurumsal Coğrafi Analiz Sistemi ile doğrudan veri / servis entegrasyonu yok.',
+  ),
+  MapRoadmapPackage(
+    id: 6,
+    sectionTitle: 'AlpinQuest',
+    headline: 'GeoPDF, vektör mağaza ve egzotik CRS',
+    description:
+        'Her GeoPDF tam raster altlık değildir; vektör mağaza veya API entegrasyonu yok; egzotik '
+        'CRS’ler .prj / EPSG / WKT ile sınırlı kalabilir.',
+  ),
+  MapRoadmapPackage(
+    id: 7,
+    sectionTitle: 'Harita işbirliği (oda + PTT)',
+    headline: 'Üretim WebSocket sunucusu',
+    description:
+        'Çoklu cihazda aynı oda için çalışır `wss://` uç noktası üretimde sizin '
+        'tarafınızda yapılandırılır (`PTT_WS_URL` vb.).',
+  ),
+  MapRoadmapPackage(
+    id: 8,
+    sectionTitle: 'Harita işbirliği (oda + PTT)',
+    headline: 'Ses hattı (codec, VAD, mikrofon)',
+    description:
+        'Gerçek ses taşıması (codec), ses etkinlik algılama (VAD) ve sürekli mikrofon akışı henüz '
+        'iskelet düzeyindedir.',
+  ),
+];
+
+List<String> _gapsForSection(String sectionTitle) => [
+      for (final p in kMapRoadmapPackages)
+        if (p.sectionTitle == sectionTitle) p.compareLine,
+    ];
+
 typedef _MapCompareSection = ({
   String title,
   List<String> theyHave,
@@ -7,7 +107,7 @@ typedef _MapCompareSection = ({
   List<String> gaps,
 });
 
-const List<_MapCompareSection> _kMapCompareSections = [
+final List<_MapCompareSection> _kMapCompareSections = [
   (
     title: 'MGRS & UTM Harita (mobil)',
     theyHave: [
@@ -21,21 +121,17 @@ const List<_MapCompareSection> _kMapCompareSections = [
       'SK-42 TM (3° GK, λ₀ 27–45°, FE 500 km) gösterim ve giriş',
       'WGS 84 / UTM kuzey + EPSG (32635–32641 ME hızlı seçim, proj4)',
       'Çevrimiçi katman seçenekleri (OSM, topo, uydu)',
-      'GPS / iki işaret noktası, sıralı rota (mor), alan poligonu (teal) ve m²',
+      'GPS; çoklu renkli işaret (pim), sıralı rota (mor), alan poligonu (teal) ve m²',
       'GPX, KML ve KMZ (`doc.kml`) dışa aktarma; KML/KMZ’de delikli poligon; kapalı alanlar GPX’te ayrı trk; GPX/KML/KMZ içe aktarma',
-      'KML `NetworkLink`: HTTPS hedefleri (yinelemesiz), süre/boyut sınırı, KMZ yanıtı; sınırlı iç içe derinlik; dışa / içe `Style` ve `StyleMap` (normal) ile çizgi rengi',
+      'KML `NetworkLink`: HTTPS hedefleri (yinelemesiz), süre/boyut sınırı, KMZ yanıtı; sınırlı iç içe derinlik; dışa / içe `Style` ve `StyleMap` (çizgi, alan; nokta `IconStyle` + KMZ/yerel/`http`·`https` ikon, `hotSpot`, dokununca highlight, HTML→düz balon)',
       'Raster MBTiles (png/jpg/webp): dosya seç, tam çevrimdışı altlık',
       'Shapefile rota (.shp/.shx, .prj ile CRS)',
       'GeoPDF: GPTS ile kapsama odak + turuncu çerçeve; varsa ilk DCT/JPEG raster üst katman',
-      'NTv2: kullanıcı .gsb ızgarası seçerek isteğe bağlı datum kaydırma (MVP)',
+      'NTv2: kullanıcı .gsb seçimi; kapsam özeti ve konum dışı uyarısı; koordinat çubuğunda kaymalı gösterim',
       'Vektör MBTiles: `format=pbf` / MVT; `metadata.json` / `vector_layers` veya gzip karo ile erken tespit; çevrimdışı paket üzerinde çevrimiçi raster altlık (isteğe bağlı)',
-      'MVT → harita: gzip veya ham `tile_data` → `vector_tile`; çizgi, poligon (delikli) ve nokta önizlemesi; dolgu / çizgi opaklığı, eşzamanlı karo sınırı, önizleme zoom tavanı; sınırlı `name`/`ref` etiketi — katman önceliği + yakın tekrar birleştirme, isteğe bağlı zoom ile etiket kotası; dokunuş modu «Özellik» ile 3×3 karo alanında özellik özeti; OpenMapTiles / MapLibre tarzı stil ve glif yok',
+      r'MVT → harita: (A) Varsayılan önizleme motoru — gzip veya ham `tile_data` → `vector_tile`; çizgi, poligon (delikli) ve nokta; katman + `class` ile sezgisel renk ve çizgi kalınlığı; sınırlı `name`/`ref` etiketi; dokunuş «Özellik» ile 3×3 karo özeti. (B) İsteğe bağlı MapLibre motoru — iOS/Android native Liberty + yerel MVT; sprite/glif/tam stil; macOS/Windows deneysel WebView; bkz. Paket 3',
     ],
-    gaps: [
-      'KML’de çoklu StyleMap senaryoları, `highlight` ve ikon/hotspot; içe aktarmada yalnızca çizgi rengi (`Style` / `StyleMap` normal); dolgu/alan rengi ve gelişmiş semboloji sınırlı',
-      'Kurumsal datum ile otomatik NTv2 eşlemesi yok; sadece seçilen .gsb',
-      'Vektör MBTiles — Paket 3 (kalan): MapLibre / Style Spec ile gerçek harita (glif, sprite, katman stilleri, yerleşime duyarlı etiket motoru); şu an tek palet + sınırlı düz metin; tam ürün için ikinci harita motoru veya kapsamlı özel renderer + mimari karar',
-    ],
+    gaps: _gapsForSection('MGRS & UTM Harita (mobil)'),
   ),
   (
     title: 'CAS — Coğrafi Analiz Sistemi (HGK)',
@@ -48,12 +144,9 @@ const List<_MapCompareSection> _kMapCompareSections = [
       'Hafif saha haritası + DEM rakım (ağ)',
       'Menzil / azimut / eğim özetleri',
       'Rota veya iz için basit DEM yükseklik profili (çevrimiçi)',
-      'İki işaret arası basit LOS (DEM örnekleme; sahadan hızlı kontrol, profesyonel görüş analizi değil)',
+      'İki işaret arası basit LOS (DEM; gözlem/hedef yüksekliği, örnek sayısı, profil, haritada yeşil/kırmızı segment + engel noktası) ve JSON tabanlı CAS 3B threat tube footprint katmanı; saha hızlı kontrolü, profesyonel CAS değil',
     ],
-    gaps: [
-      'Tehdit tüpü, 3B küre, tam tehdit/görüş modellemesi yok',
-      'Kurumsal CAS ile doğrudan veri bağlantısı yok',
-    ],
+    gaps: _gapsForSection('CAS — Coğrafi Analiz Sistemi (HGK)'),
   ),
   (
     title: 'AlpinQuest',
@@ -63,7 +156,7 @@ const List<_MapCompareSection> _kMapCompareSections = [
       'Katman opaklığı, DEM gölgelendirme, yakınlık uyarıları',
     ],
     weHave: [
-      'GPS, iki işaret noktası, sıralı rota çizgisi',
+      'GPS, çoklu işaret (pim), sıralı rota çizgisi',
       'GPS iz kaydı, yeşil iz çizgisi, GPX trk',
       'Kapalı poligon ile alan (m²), DEM profili',
       'Balistik sekmesi ile entegre hedef aktarımı',
@@ -75,9 +168,7 @@ const List<_MapCompareSection> _kMapCompareSections = [
       'İsteğe bağlı DEM hillshade: Esri World Hillshade üst karo katmanı (ağ), saydamlık ve tercih kayıtlı',
       'GeoPDF (.pdf): GPTS odak + çerçeve; uygun PDF’lerde DCT/JPEG raster üst katman',
     ],
-    gaps: [
-      'Her GeoPDF tam raster altlık değildir; vektör mağaza/API entegrasyonu yok; egzotik CRS’ler .prj/EPSG/WKT ile sınırlı kalabilir',
-    ],
+    gaps: _gapsForSection('AlpinQuest'),
   ),
   (
     title: 'Harita işbirliği (oda + PTT)',
@@ -90,41 +181,23 @@ const List<_MapCompareSection> _kMapCompareSections = [
       'PTT kuyruğu ve moderasyon; ses tercihleri (giriş modu, öz-sessiz, odayı dinle) UI + wire',
       'Uzak modda yeniden bağlanınca join + durum snapshot isteği (istemci)',
     ],
-    gaps: [
-      'Üretimde çalışır WebSocket uç noktası / sunucu sizin tarafınızda yapılandırılır',
-      'Gerçek ses taşıması (codec), VAD ve sürekli mikrofon — ses hattı henüz iskelet',
-    ],
+    gaps: _gapsForSection('Harita işbirliği (oda + PTT)'),
   ),
 ];
 
-int _totalGapCount() {
-  var n = 0;
-  for (final s in _kMapCompareSections) {
-    n += s.gaps.length;
-  }
-  return n;
-}
+int _totalGapCount() => kMapRoadmapPackages.length;
 
 int _gapPackageStartIndex(int sectionIndex) {
-  var p = 1;
-  for (var i = 0; i < sectionIndex; i++) {
-    p += _kMapCompareSections[i].gaps.length;
-  }
-  return p;
+  final secTitle = _kMapCompareSections[sectionIndex].title;
+  final first = kMapRoadmapPackages.indexWhere((p) => p.sectionTitle == secTitle);
+  return first < 0 ? 1 : kMapRoadmapPackages[first].id;
 }
 
-/// Tüm «Eksik / yol haritası» maddeleri sırayla Paket 1…N (tek liste).
-List<({int pkg, String sectionTitle, String gap})> _numberedGapPackages() {
-  final out = <({int pkg, String sectionTitle, String gap})>[];
-  var p = 1;
-  for (final sec in _kMapCompareSections) {
-    for (final g in sec.gaps) {
-      out.add((pkg: p, sectionTitle: sec.title, gap: g));
-      p++;
-    }
-  }
-  return out;
-}
+/// Tüm «Eksik / yol haritası» maddeleri sırayla Paket 1…8 (tek liste).
+List<({int pkg, String sectionTitle, String headline, String body})> _numberedGapPackages() => [
+      for (final p in kMapRoadmapPackages)
+        (pkg: p.id, sectionTitle: p.sectionTitle, headline: p.headline, body: p.description),
+    ];
 
 /// MGRS & UTM Harita, CAS (HGK Coğrafi Analiz), AlpinQuest ile kaba karşılaştırma.
 Future<void> showMapsReferenceComparisonSheet(BuildContext context) {
@@ -141,7 +214,12 @@ Future<void> showMapsReferenceComparisonSheet(BuildContext context) {
         final scheme = Theme.of(ctx).colorScheme;
         return ListView(
           controller: scroll,
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            8,
+            20,
+            24 + MediaQuery.paddingOf(ctx).bottom,
+          ),
           children: [
             Text('Referans uygulamalar vs Blue Viper', style: Theme.of(ctx).textTheme.titleLarge),
             const SizedBox(height: 12),
@@ -150,9 +228,9 @@ Future<void> showMapsReferenceComparisonSheet(BuildContext context) {
               borderRadius: BorderRadius.circular(12),
               child: ExpansionTile(
                 initiallyExpanded: true,
-                title: const Text('Eksikler / yol haritası — özet'),
+                title: const Text('Eksikler / yol haritası — 8 paket'),
                 subtitle: Text(
-                  '${_totalGapCount()} madde; ayrıntı aşağıda her blokta tekrarlanır',
+                  '${_totalGapCount()} paket; ayrıntı aşağıda her blokta tekrarlanır',
                   style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
                 ),
                 children: [
@@ -162,14 +240,25 @@ Future<void> showMapsReferenceComparisonSheet(BuildContext context) {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         for (final e in _numberedGapPackages()) ...[
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 12),
                           Text(
                             'Paket ${e.pkg} · ${e.sectionTitle}',
                             style: TextStyle(fontWeight: FontWeight.w700, color: scheme.error, fontSize: 12),
                           ),
                           Padding(
                             padding: const EdgeInsets.only(left: 8, top: 4),
-                            child: Text(e.gap, style: const TextStyle(fontSize: 12)),
+                            child: Text(
+                              e.headline,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                                color: scheme.onSurface,
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 8, top: 2),
+                            child: Text(e.body, style: const TextStyle(fontSize: 12, height: 1.35)),
                           ),
                         ],
                       ],

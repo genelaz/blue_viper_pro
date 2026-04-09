@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:blue_viper_pro/core/ballistics/bc_kind.dart';
 import 'package:blue_viper_pro/core/ballistics/click_units.dart';
+import 'package:blue_viper_pro/core/profile/shot_scene_preset.dart';
 import 'package:blue_viper_pro/core/profile/weapon_profile_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,6 +11,9 @@ void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     await WeaponProfileStore.clear();
+    WeaponProfileBookStore.entries.value = [];
+    ShotScenePresetBookStore.entries.value = [];
+    ShotScenePresetBookStore.current.value = null;
   });
 
   test('save persists and loadPersisted restores', () async {
@@ -40,6 +44,10 @@ void main() {
     expect(got.clickUnit, ClickUnit.moa);
     expect(got.clickValue, p.clickValue);
     expect(got.displayBallisticCoefficient, 0.19);
+    expect(got.enableSpinDrift, false);
+    expect(got.twistRightHanded, true);
+    expect(got.enableCoriolis, false);
+    expect(got.enableAerodynamicJump, false);
   });
 
   test('clear removes prefs and notifier', () async {
@@ -66,16 +74,77 @@ void main() {
       bcKind: BcKind.g1,
       clickUnit: ClickUnit.mil,
       clickValue: 0.1,
+      weaponCatalogId: 'tr_knt76',
+      enableSpinDrift: true,
+      twistRightHanded: false,
+      bulletMassGrains: 175,
+      bulletCaliberInches: 0.308,
+      twistInchesPerTurn: 10,
+      enableCoriolis: true,
+      latitudeDegrees: 41.2,
+      enableAerodynamicJump: true,
+      azimuthFromNorthDegrees: 45,
     );
     final map = original.toJson();
     final decoded = WeaponProfile.fromJson(map)!;
     expect(decoded.name, original.name);
     expect(decoded.muzzleVelocityMps, original.muzzleVelocityMps);
     expect(decoded.bcKind, original.bcKind);
+    expect(decoded.weaponCatalogId, 'tr_knt76');
+    expect(decoded.enableSpinDrift, true);
+    expect(decoded.twistRightHanded, false);
+    expect(decoded.bulletMassGrains, 175);
+    expect(decoded.bulletCaliberInches, 0.308);
+    expect(decoded.twistInchesPerTurn, 10);
+    expect(decoded.enableCoriolis, true);
+    expect(decoded.latitudeDegrees, 41.2);
+    expect(decoded.enableAerodynamicJump, true);
+    expect(decoded.azimuthFromNorthDegrees, 45);
   });
 
   test('fromJson returns null for missing fields', () {
     expect(WeaponProfile.fromJson({'name': 'a'}), isNull);
     expect(WeaponProfile.fromJson(jsonDecode('{"name":"a","muzzleVelocityMps":1}') as Map<String, dynamic>), isNull);
+  });
+
+  test('WeaponProfileBookStore upsert keeps multiple entries', () async {
+    const a = WeaponProfile(
+      id: '',
+      name: 'A',
+      muzzleVelocityMps: 800,
+      ballisticCoefficientG1: 0.45,
+      clickUnit: ClickUnit.mil,
+      clickValue: 0.1,
+    );
+    const b = WeaponProfile(
+      id: '',
+      name: 'B',
+      muzzleVelocityMps: 780,
+      ballisticCoefficientG1: 0.40,
+      clickUnit: ClickUnit.mil,
+      clickValue: 0.1,
+    );
+    final sa = await WeaponProfileBookStore.upsertAndActivate(a);
+    final sb = await WeaponProfileBookStore.upsertAndActivate(b);
+    expect(sa.id, isNotEmpty);
+    expect(sb.id, isNotEmpty);
+    expect(sa.id, isNot(equals(sb.id)));
+    expect(WeaponProfileBookStore.entries.value.length, 2);
+    expect(WeaponProfileStore.current.value?.name, 'B');
+  });
+
+  test('WeaponProfileBookStore remove drops one entry', () async {
+    const a = WeaponProfile(
+      id: '',
+      name: 'A',
+      muzzleVelocityMps: 800,
+      ballisticCoefficientG1: 0.45,
+      clickUnit: ClickUnit.mil,
+      clickValue: 0.1,
+    );
+    final sa = await WeaponProfileBookStore.upsertAndActivate(a);
+    await WeaponProfileBookStore.remove(sa.id);
+    expect(WeaponProfileBookStore.entries.value, isEmpty);
+    expect(WeaponProfileStore.current.value, isNull);
   });
 }

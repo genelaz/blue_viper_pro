@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 
 import 'core/app_update/simple_update_channel.dart';
+import 'core/profile/shot_scene_preset.dart';
 import 'core/profile/weapon_profile_store.dart';
 import 'core/ui/field_app_theme.dart';
 import 'features/ballistics/presentation/ballistics_page.dart';
@@ -27,7 +28,10 @@ void main() async {
       await applyWorkaroundToOpenSqlite3OnOldAndroidVersions();
     } catch (_) {}
   }
+  await ShotScenePresetBookStore.loadPersisted();
+  await ShotScenePresetBookStore.tryImportLegacySingleWeaponPrefs();
   await WeaponProfileStore.loadPersisted();
+  await WeaponProfileBookStore.loadPersisted();
   await MapCollabIdentity.load();
   runApp(const BlueViperProApp());
 }

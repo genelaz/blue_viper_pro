@@ -27,6 +27,71 @@ void main() {
     expect(r.styledLines.single.$4, 2);
   });
 
+  test('parseKmlPlacemarks expands BalloonStyle text placeholders', () {
+    const kml = '''
+<kml xmlns="http://www.opengis.net/kml/2.2"><Document>
+  <Style id="b">
+    <BalloonStyle><text>\$[name]: \$[description]</text></BalloonStyle>
+    <IconStyle><color>ffffffff</color><scale>1</scale></IconStyle>
+  </Style>
+  <Placemark>
+    <name>Alpha</name>
+    <description><![CDATA[<b>Beta</b> desc]]></description>
+    <styleUrl>#b</styleUrl>
+    <Point><coordinates>1,2,0</coordinates></Point>
+  </Placemark>
+</Document></kml>''';
+    final r = parseKmlPlacemarks(kml);
+    expect(r.points.single.balloonText, 'Alpha: Beta desc');
+  });
+
+  test('kmlPlainTextFromBalloonHtml strips tags and common entities', () {
+    expect(kmlPlainTextFromBalloonHtml('<p>A &amp; B</p>'), 'A & B');
+    expect(kmlPlainTextFromBalloonHtml('  x  '), 'x');
+  });
+
+  test('parseKmlPlacemarks sets highlight icon fields when StyleMap differs', () {
+    const kml = '''
+<kml xmlns="http://www.opengis.net/kml/2.2"><Document>
+  <Style id="n"><IconStyle><color>ff0000ff</color><scale>1</scale></IconStyle></Style>
+  <Style id="h"><IconStyle><color>ff00ff00</color><scale>1.5</scale></IconStyle></Style>
+  <StyleMap id="m">
+    <Pair><key>normal</key><styleUrl>#n</styleUrl></Pair>
+    <Pair><key>highlight</key><styleUrl>#h</styleUrl></Pair>
+  </StyleMap>
+  <Placemark><name>X</name><styleUrl>#m</styleUrl><Point><coordinates>0,0,0</coordinates></Point></Placemark>
+</Document></kml>''';
+    final r = parseKmlPlacemarks(kml);
+    final p = r.points.single;
+    expect(p.hasKmlIconHighlight, isTrue);
+    expect(p.iconColorArgb, 0xFFFF0000);
+    expect(p.iconHighlightColorArgb, 0xFF00FF00);
+    expect(p.iconHighlightScale, 1.5);
+  });
+
+  test('parseKmlPlacemarks reads IconStyle color and scale on Point', () {
+    const kml = '''
+<kml xmlns="http://www.opengis.net/kml/2.2"><Document>
+  <Style id="ic">
+    <IconStyle>
+      <color>ff00ff00</color>
+      <scale>2</scale>
+    </IconStyle>
+  </Style>
+  <Placemark>
+    <name>W</name>
+    <styleUrl>#ic</styleUrl>
+    <Point><coordinates>10,20,0</coordinates></Point>
+  </Placemark>
+</Document></kml>''';
+    final r = parseKmlPlacemarks(kml);
+    expect(r.points.length, 1);
+    expect(r.points.single.name, 'W');
+    expect(r.points.single.point, const LatLng(20, 10));
+    expect(r.points.single.iconColorArgb, 0xFF00FF00);
+    expect(r.points.single.iconScale, 2);
+  });
+
   test('parseKmlPlacemarks disambiguates multiple LineStrings in one Placemark', () {
     const kml = '''
 <kml xmlns="http://www.opengis.net/kml/2.2"><Document>

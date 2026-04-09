@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:latlong2/latlong.dart';
+import 'package:meta/meta.dart';
 
 /// NTv2 `.gsb` grid (deneysel): `GS_TYPE` SECOND, alt ızgara sonundaki float32 çiftleri (lat/lon saniye).
 class Ntv2GsbShift {
@@ -24,6 +25,26 @@ class Ntv2GsbShift {
   final double lonStepDeg;
   final Float32List latShiftSec;
   final Float32List lonShiftSec;
+
+  /// Izgara kuzey kenarı (derece).
+  double get northDeg => southDeg + (latCount - 1) * latStepDeg;
+
+  /// Izgara doğu kenarı (derece).
+  double get eastDeg => westDeg + (lonCount - 1) * lonStepDeg;
+
+  /// [shiftWgs84] ile aynı “içeride” tanımı — dışarıda kayma uygulanmaz.
+  bool coversWgs84(LatLng wgs) {
+    if (latCount < 2 || lonCount < 2) return false;
+    final gx = (wgs.longitude - westDeg) / lonStepDeg;
+    final gy = (wgs.latitude - southDeg) / latStepDeg;
+    return gx >= 0 && gy >= 0 && gx <= lonCount - 1 && gy <= latCount - 1;
+  }
+
+  /// Ayar / durum satırı için kısa kapsam özeti.
+  String extentSummaryDegrees({int decimals = 2}) {
+    String f(double v) => v.toStringAsFixed(decimals);
+    return '${f(southDeg)}–${f(northDeg)}°N, ${f(westDeg)}–${f(eastDeg)}°E';
+  }
 
   /// WGS84 enlem/boylamına kayma (saniye → derece eklenir; proj4 NTv2 eşleniği).
   LatLng shiftWgs84(LatLng wgs) {
@@ -102,6 +123,29 @@ class Ntv2GsbShift {
       lonStepDeg: lonStepDeg,
       latShiftSec: latShift,
       lonShiftSec: lonShift,
+    );
+  }
+
+  /// [coversWgs84] / [extentSummaryDegrees] birim testleri (geçerli `.gsb` olmadan).
+  @visibleForTesting
+  factory Ntv2GsbShift.debugEmptyGridForExtent({
+    required int latCount,
+    required int lonCount,
+    required double southDeg,
+    required double westDeg,
+    required double latStepDeg,
+    required double lonStepDeg,
+  }) {
+    final n = latCount * lonCount;
+    return Ntv2GsbShift._(
+      latCount: latCount,
+      lonCount: lonCount,
+      southDeg: southDeg,
+      westDeg: westDeg,
+      latStepDeg: latStepDeg,
+      lonStepDeg: lonStepDeg,
+      latShiftSec: Float32List(n),
+      lonShiftSec: Float32List(n),
     );
   }
 }

@@ -34,6 +34,13 @@ enum MapGridMode {
   utmNorth,
 }
 
+enum Cas3dTubePresetMode {
+  all,
+  none,
+  high,
+  custom,
+}
+
 /// SharedPreferences ile kalıcı harita görünümü / birimleri.
 class MapDisplayPrefs {
   MapDisplayPrefs({
@@ -53,7 +60,15 @@ class MapDisplayPrefs {
     this.vectorMbtilesScaleLabelsByZoom = true,
     this.vectorMbtilesFillOpacity = 0.18,
     this.vectorMbtilesStrokeOpacity = 0.88,
+    this.vectorMbtilesUseMaplibreEngine = false,
     this.ntv2GsbPath,
+    this.tacticalCrosshairEnabled = false,
+    this.losThreatTubeHalfWidthM = 40,
+    this.losThreatTubeTargetHalfWidthM = 80,
+    this.cas3dEnabledTubeIds = const <String>{},
+    this.cas3dTubePresetMode = Cas3dTubePresetMode.all,
+    this.casRemoteAutoSyncEnabled = false,
+    this.casRemoteAutoSyncSec = 120,
   });
 
   final MapHudCoordFormat hudCoordFormat;
@@ -99,8 +114,25 @@ class MapDisplayPrefs {
   /// Çizgi ve poligon sınır çizgisi opaklığı (vektör önizleme).
   final double vectorMbtilesStrokeOpacity;
 
+  /// true: vektör MBTiles altlığında MapLibre Native + OpenFreeMap Liberty stili (sprite/glif/Style Spec).
+  /// false: mevcut flutter_map + MVT geometri önizlemesi.
+  final bool vectorMbtilesUseMaplibreEngine;
+
   /// Son seçilen NTv2 `.gsb` dosyasının tam yolu (mobil / masaüstü); yoksa null.
   final String? ntv2GsbPath;
+
+  /// Ortadaki artı nişangah, üst taktik çubuk ve referans→nişangah çizgisi.
+  final bool tacticalCrosshairEnabled;
+
+  /// Paket 4 MVP tehdit tüpü yarı genişliği (m).
+  final double losThreatTubeHalfWidthM;
+  /// Paket 4: hedefe doğru genişleyen tüp için hedef tarafı yarı genişlik (m).
+  final double losThreatTubeTargetHalfWidthM;
+  /// CAS 3B katmanında kullanıcı tarafından etkin bırakılan tube id’leri.
+  final Set<String> cas3dEnabledTubeIds;
+  final Cas3dTubePresetMode cas3dTubePresetMode;
+  final bool casRemoteAutoSyncEnabled;
+  final int casRemoteAutoSyncSec;
 
   static const _kCoord = 'map_hud_coord_format_v2';
   static const _kDist = 'map_distance_unit_v1';
@@ -118,7 +150,15 @@ class MapDisplayPrefs {
   static const _kVectorScaleLabels = 'map_vector_mbtiles_scale_labels_by_zoom_v1';
   static const _kVectorFillOp = 'map_vector_mbtiles_fill_opacity_v1';
   static const _kVectorStrokeOp = 'map_vector_mbtiles_stroke_opacity_v1';
+  static const _kVectorMaplibreEngine = 'map_vector_mbtiles_maplibre_engine_v1';
   static const _kNtv2GsbPath = 'map_ntv2_gsb_path_v1';
+  static const _kTacticalHud = 'map_tactical_crosshair_v1';
+  static const _kLosThreatTubeHalfWidth = 'map_los_threat_tube_half_width_m_v1';
+  static const _kLosThreatTubeTargetHalfWidth = 'map_los_threat_tube_target_half_width_m_v1';
+  static const _kCas3dEnabledTubeIds = 'map_cas3d_enabled_tube_ids_v1';
+  static const _kCas3dTubePresetMode = 'map_cas3d_tube_preset_mode_v1';
+  static const _kCasRemoteAutoSyncEnabled = 'map_cas_remote_auto_sync_enabled_v1';
+  static const _kCasRemoteAutoSyncSec = 'map_cas_remote_auto_sync_sec_v1';
 
   /// Varsayılan 20; düşük = daha az işlem, yüksek = daha fazla detay (daha ağır).
   static int _parseVectorMaxTiles(int? raw) {
@@ -199,6 +239,39 @@ class MapDisplayPrefs {
     return raw;
   }
 
+  static double _parseLosThreatTubeHalfWidth(double? raw) {
+    if (raw == null || raw.isNaN) return 40;
+    return raw.clamp(10, 300);
+  }
+
+  static double _parseLosThreatTubeTargetHalfWidth(double? raw) {
+    if (raw == null || raw.isNaN) return 80;
+    return raw.clamp(10, 600);
+  }
+
+  static Set<String> _parseCas3dEnabledTubeIds(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return <String>{};
+    final out = <String>{};
+    for (final p in raw.split(',')) {
+      final t = p.trim();
+      if (t.isNotEmpty) out.add(t);
+    }
+    return out;
+  }
+
+  static Cas3dTubePresetMode _parseCas3dTubePresetMode(String? raw) {
+    if (raw == null) return Cas3dTubePresetMode.all;
+    for (final v in Cas3dTubePresetMode.values) {
+      if (v.name == raw) return v;
+    }
+    return Cas3dTubePresetMode.all;
+  }
+
+  static int _parseCasRemoteAutoSyncSec(int? raw) {
+    if (raw == null) return 120;
+    return raw.clamp(30, 600);
+  }
+
   static Future<MapDisplayPrefs> load() async {
     final p = await SharedPreferences.getInstance();
     return MapDisplayPrefs(
@@ -218,7 +291,25 @@ class MapDisplayPrefs {
       vectorMbtilesScaleLabelsByZoom: p.getBool(_kVectorScaleLabels) ?? true,
       vectorMbtilesFillOpacity: _parseVectorFillOpacity(p.getDouble(_kVectorFillOp)),
       vectorMbtilesStrokeOpacity: _parseVectorStrokeOpacity(p.getDouble(_kVectorStrokeOp)),
+      vectorMbtilesUseMaplibreEngine: p.getBool(_kVectorMaplibreEngine) ?? false,
       ntv2GsbPath: p.getString(_kNtv2GsbPath),
+      tacticalCrosshairEnabled: p.getBool(_kTacticalHud) ?? false,
+      losThreatTubeHalfWidthM: _parseLosThreatTubeHalfWidth(
+        p.getDouble(_kLosThreatTubeHalfWidth),
+      ),
+      losThreatTubeTargetHalfWidthM: _parseLosThreatTubeTargetHalfWidth(
+        p.getDouble(_kLosThreatTubeTargetHalfWidth),
+      ),
+      cas3dEnabledTubeIds: _parseCas3dEnabledTubeIds(
+        p.getString(_kCas3dEnabledTubeIds),
+      ),
+      cas3dTubePresetMode: _parseCas3dTubePresetMode(
+        p.getString(_kCas3dTubePresetMode),
+      ),
+      casRemoteAutoSyncEnabled: p.getBool(_kCasRemoteAutoSyncEnabled) ?? false,
+      casRemoteAutoSyncSec: _parseCasRemoteAutoSyncSec(
+        p.getInt(_kCasRemoteAutoSyncSec),
+      ),
     );
   }
 
@@ -248,12 +339,30 @@ class MapDisplayPrefs {
     await p.setBool(_kVectorScaleLabels, vectorMbtilesScaleLabelsByZoom);
     await p.setDouble(_kVectorFillOp, _parseVectorFillOpacity(vectorMbtilesFillOpacity));
     await p.setDouble(_kVectorStrokeOp, _parseVectorStrokeOpacity(vectorMbtilesStrokeOpacity));
+    await p.setBool(_kVectorMaplibreEngine, vectorMbtilesUseMaplibreEngine);
     final g = ntv2GsbPath?.trim();
     if (g != null && g.isNotEmpty) {
       await p.setString(_kNtv2GsbPath, g);
     } else {
       await p.remove(_kNtv2GsbPath);
     }
+    await p.setBool(_kTacticalHud, tacticalCrosshairEnabled);
+    await p.setDouble(
+      _kLosThreatTubeHalfWidth,
+      _parseLosThreatTubeHalfWidth(losThreatTubeHalfWidthM),
+    );
+    await p.setDouble(
+      _kLosThreatTubeTargetHalfWidth,
+      _parseLosThreatTubeTargetHalfWidth(losThreatTubeTargetHalfWidthM),
+    );
+    if (cas3dEnabledTubeIds.isEmpty) {
+      await p.remove(_kCas3dEnabledTubeIds);
+    } else {
+      await p.setString(_kCas3dEnabledTubeIds, cas3dEnabledTubeIds.join(','));
+    }
+    await p.setString(_kCas3dTubePresetMode, cas3dTubePresetMode.name);
+    await p.setBool(_kCasRemoteAutoSyncEnabled, casRemoteAutoSyncEnabled);
+    await p.setInt(_kCasRemoteAutoSyncSec, _parseCasRemoteAutoSyncSec(casRemoteAutoSyncSec));
   }
 }
 
