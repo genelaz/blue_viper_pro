@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'ballistics_engine.dart';
+import 'ballistics_output_convention.dart';
 import 'bc_kind.dart';
 import 'bc_mach_segment.dart';
 import 'click_units.dart';
@@ -47,7 +48,28 @@ Map<String, dynamic> _inputToJson(BallisticsSolveInput i) {
     'customDragMachNodes': i.customDragMachNodes,
     'customDragI': i.customDragI,
     'targetCrossTrackMps': i.targetCrossTrackMps,
+    'angularMilConvention': i.angularMilConvention.name,
+    'moaDisplayConvention': i.moaDisplayConvention.name,
+    'invertCrossWindSign': i.invertCrossWindSign,
   };
+}
+
+AngularMilConvention _angularMilFromJson(Object? raw) {
+  if (raw is! String) return AngularMilConvention.linear;
+  try {
+    return AngularMilConvention.values.byName(raw);
+  } catch (_) {
+    return AngularMilConvention.linear;
+  }
+}
+
+MoaDisplayConvention _moaConvFromJson(Object? raw) {
+  if (raw is! String) return MoaDisplayConvention.legacyFromMil;
+  try {
+    return MoaDisplayConvention.values.byName(raw);
+  } catch (_) {
+    return MoaDisplayConvention.legacyFromMil;
+  }
 }
 
 List<double>? _jsonToDoubleList(Object? v) {
@@ -135,6 +157,9 @@ BallisticsSolveInput? _inputFromJson(Object? raw) {
       customDragMachNodes: _jsonToDoubleList(m['customDragMachNodes']),
       customDragI: _jsonToDoubleList(m['customDragI']),
       targetCrossTrackMps: (m['targetCrossTrackMps'] as num?)?.toDouble() ?? 0,
+      angularMilConvention: _angularMilFromJson(m['angularMilConvention']),
+      moaDisplayConvention: _moaConvFromJson(m['moaDisplayConvention']),
+      invertCrossWindSign: m['invertCrossWindSign'] == true,
     );
   } catch (_) {
     return null;

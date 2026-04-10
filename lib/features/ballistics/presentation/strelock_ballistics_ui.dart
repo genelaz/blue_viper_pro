@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 /// StreLok-benzeri koyu ayar ekranları — ortak renk ve satır bileşenleri.
@@ -14,6 +16,340 @@ abstract final class StreLockBalColors {
   static const Color resultGreen = Color(0xFF69F0AE);
   static const Color footerBar = Color(0xFFE0E0E0);
   static const Color switchOn = Color(0xFFFF9800);
+}
+
+/// [BallisticsPage] gövdesi — koyu StreLok paleti + okunaklı formlar.
+ThemeData streLockBallisticsTheme(BuildContext context) {
+  const scaffold = StreLockBalColors.scaffold;
+  return ThemeData(
+    useMaterial3: true,
+    brightness: Brightness.dark,
+    scaffoldBackgroundColor: scaffold,
+    colorScheme: ColorScheme.dark(
+      primary: StreLockBalColors.headerOrange,
+      onPrimary: Colors.black,
+      secondary: StreLockBalColors.titleBlue,
+      onSecondary: Colors.black,
+      surface: const Color(0xFF323234),
+      onSurface: StreLockBalColors.label,
+      surfaceContainerHighest: const Color(0xFF3C3C3F),
+      outline: Colors.white24,
+      outlineVariant: Colors.white10,
+    ),
+    dividerColor: Colors.white12,
+    tabBarTheme: TabBarThemeData(
+      indicatorColor: StreLockBalColors.titleBlue,
+      labelColor: StreLockBalColors.titleBlue,
+      unselectedLabelColor: StreLockBalColors.label.withValues(alpha: 0.65),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      isDense: true,
+      filled: true,
+      fillColor: Colors.white.withValues(alpha: 0.08),
+      labelStyle: const TextStyle(color: StreLockBalColors.label),
+      hintStyle: TextStyle(color: StreLockBalColors.label.withValues(alpha: 0.5)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.18)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: StreLockBalColors.titleBlue, width: 2),
+      ),
+    ),
+    textTheme: Theme.of(context).textTheme.apply(
+          bodyColor: StreLockBalColors.label,
+          displayColor: StreLockBalColors.label,
+        ),
+  );
+}
+
+/// Kestrel tarzı: dış halka = meteorolojik **rüzgâr kaynağı yönü** (kuzeyden °), dokun/sürükle.
+/// Sıcaklık / basınç / nem / DA metinleri halkanın içinde köşelerde; merkezde derece.
+class StreLockKestrelMetWindDial extends StatefulWidget {
+  const StreLockKestrelMetWindDial({
+    super.key,
+    required this.windFromDegrees,
+    required this.onWindFromChanged,
+    required this.windSpeedMps,
+    required this.temperatureLine,
+    required this.pressureLine,
+    required this.humidityLine,
+    this.densityAltitudeLine,
+    this.useMetWindVector = true,
+  });
+
+  /// Kuzeyden saat yönünde, 0–360° (meteorolojik «rüzgâr kaynağı»).
+  final double windFromDegrees;
+  final ValueChanged<double> onWindFromChanged;
+  final String windSpeedMps;
+  final String temperatureLine;
+  final String pressureLine;
+  final String humidityLine;
+  final String? densityAltitudeLine;
+  final bool useMetWindVector;
+
+  @override
+  State<StreLockKestrelMetWindDial> createState() => _StreLockKestrelMetWindDialState();
+}
+
+class _StreLockKestrelMetWindDialState extends State<StreLockKestrelMetWindDial> {
+  late double _deg;
+
+  @override
+  void initState() {
+    super.initState();
+    _deg = _normDeg(widget.windFromDegrees);
+  }
+
+  @override
+  void didUpdateWidget(covariant StreLockKestrelMetWindDial oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.windFromDegrees != widget.windFromDegrees) {
+      _deg = _normDeg(widget.windFromDegrees);
+    }
+  }
+
+  static double _normDeg(double d) {
+    var x = d % 360;
+    if (x < 0) x += 360;
+    return x;
+  }
+
+  void _setFromLocal(Offset local, Size size) {
+    final c = Offset(size.width / 2, size.height / 2);
+    final dx = local.dx - c.dx;
+    final dy = local.dy - c.dy;
+    if (dx * dx + dy * dy < 16) return;
+    var deg = math.atan2(dx, -dy) * 180 / math.pi;
+    if (deg < 0) deg += 360;
+    setState(() => _deg = deg);
+    widget.onWindFromChanged(_deg);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final small = streLockLabelStyle(context).copyWith(fontSize: 10, height: 1.15);
+    final centerDeg = Theme.of(context).textTheme.titleMedium?.copyWith(
+          color: StreLockBalColors.fieldFill,
+          fontWeight: FontWeight.w800,
+        );
+
+    return LayoutBuilder(
+      builder: (context, c) {
+        final side = math.min(c.maxWidth, 260.0);
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
+              child: SizedBox(
+                width: side,
+                height: side,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapDown: (e) => _setFromLocal(e.localPosition, Size(side, side)),
+                  onPanUpdate: (e) => _setFromLocal(e.localPosition, Size(side, side)),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      CustomPaint(
+                        size: Size(side, side),
+                        painter: _KestrelWindDialRingPainter(
+                          tickColor: StreLockBalColors.titleBlue.withValues(alpha: 0.45),
+                          ringColor: StreLockBalColors.headerOrange.withValues(alpha: 0.55),
+                        ),
+                      ),
+                      CustomPaint(
+                        size: Size(side, side),
+                        painter: _KestrelWindArrowPainter(
+                          windFromDegrees: _deg,
+                          arrowColor: StreLockBalColors.resultRed,
+                        ),
+                      ),
+                      Positioned(
+                        top: 10,
+                        left: 10,
+                        right: 10,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                widget.temperatureLine,
+                                style: small,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Expanded(
+                              child: Text(
+                                widget.humidityLine,
+                                textAlign: TextAlign.end,
+                                style: small,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('${_deg.toStringAsFixed(0)}°', style: centerDeg),
+                            Text(
+                              'kuzeyden',
+                              style: small.copyWith(fontSize: 9),
+                            ),
+                            if (widget.densityAltitudeLine != null &&
+                                widget.densityAltitudeLine!.trim().isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                widget.densityAltitudeLine!,
+                                textAlign: TextAlign.center,
+                                style: small,
+                              ),
+                            ],
+                            const SizedBox(height: 2),
+                            Text(
+                              widget.pressureLine,
+                              textAlign: TextAlign.center,
+                              style: small,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 8,
+                        child: Text(
+                          'Rüzgâr hızı, m/s: ${widget.windSpeedMps}',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                color: StreLockBalColors.resultGreen,
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            if (!widget.useMetWindVector)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'Yan rüzgâr modunda çözüm alanları aşağıda; tam vektör için «Met rüzgârı» seçeneğini açın.',
+                  textAlign: TextAlign.center,
+                  style: streLockLabelStyle(context).copyWith(fontSize: 11),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _KestrelWindDialRingPainter extends CustomPainter {
+  _KestrelWindDialRingPainter({required this.tickColor, required this.ringColor});
+
+  final Color tickColor;
+  final Color ringColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = Offset(size.width / 2, size.height / 2);
+    final r = size.width / 2;
+    final ring = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..color = ringColor;
+    canvas.drawCircle(c, r - 4, ring);
+    final tick = Paint()
+      ..strokeWidth = 1.2
+      ..color = tickColor;
+    for (var i = 0; i < 36; i++) {
+      final ang = i * math.pi * 2 / 36;
+      final long = i % 3 == 0;
+      final r0 = r - (long ? 18 : 12);
+      final r1 = r - 7;
+      canvas.drawLine(
+        Offset(c.dx + r0 * math.sin(ang), c.dy - r0 * math.cos(ang)),
+        Offset(c.dx + r1 * math.sin(ang), c.dy - r1 * math.cos(ang)),
+        tick,
+      );
+    }
+    final tp = TextPainter(
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    );
+    void drawCardinal(String label, double degFromNorth) {
+      final ang = degFromNorth * math.pi / 180;
+      final x = c.dx + (r - 26) * math.sin(ang);
+      final y = c.dy - (r - 26) * math.cos(ang);
+      tp.text = TextSpan(
+        text: label,
+        style: TextStyle(
+          color: StreLockBalColors.label.withValues(alpha: 0.85),
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      );
+      tp.layout();
+      tp.paint(canvas, Offset(x - tp.width / 2, y - tp.height / 2));
+    }
+
+    drawCardinal('12', 0);
+    drawCardinal('3', 90);
+    drawCardinal('6', 180);
+    drawCardinal('9', 270);
+  }
+
+  @override
+  bool shouldRepaint(covariant _KestrelWindDialRingPainter oldDelegate) =>
+      oldDelegate.tickColor != tickColor || oldDelegate.ringColor != ringColor;
+}
+
+/// Ok, rüzgârın **geldiği** yöne doğru (meteorolojik kaynak).
+class _KestrelWindArrowPainter extends CustomPainter {
+  _KestrelWindArrowPainter({required this.windFromDegrees, required this.arrowColor});
+
+  final double windFromDegrees;
+  final Color arrowColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = Offset(size.width / 2, size.height / 2);
+    final r = size.width / 2 * 0.42;
+    final rad = (windFromDegrees * math.pi / 180) - math.pi / 2;
+    final tip = Offset(c.dx + r * math.cos(rad), c.dy + r * math.sin(rad));
+    final perp = Offset(-math.sin(rad), math.cos(rad)) * 10.0;
+    final base = c + Offset(math.cos(rad), math.sin(rad)) * (r * 0.35);
+    final path = Path()
+      ..moveTo(tip.dx, tip.dy)
+      ..lineTo(base.dx + perp.dx, base.dy + perp.dy)
+      ..lineTo(base.dx - perp.dx, base.dy - perp.dy)
+      ..close();
+    final fill = Paint()..color = arrowColor;
+    canvas.drawPath(path, fill);
+    final stem = Paint()
+      ..color = arrowColor.withValues(alpha: 0.35)
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(c, base, stem);
+  }
+
+  @override
+  bool shouldRepaint(covariant _KestrelWindArrowPainter oldDelegate) =>
+      oldDelegate.windFromDegrees != windFromDegrees || oldDelegate.arrowColor != arrowColor;
 }
 
 TextStyle streLockLabelStyle(BuildContext context) =>

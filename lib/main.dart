@@ -9,6 +9,7 @@ import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 import 'core/app_update/simple_update_channel.dart';
 import 'core/profile/shot_scene_preset.dart';
 import 'core/profile/weapon_profile_store.dart';
+import 'core/ui/developer_credit_shell.dart';
 import 'core/ui/field_app_theme.dart';
 import 'features/ballistics/presentation/ballistics_page.dart';
 import 'features/bluetooth/presentation/bluetooth_page.dart';
@@ -37,13 +38,25 @@ void main() async {
 }
 
 class BlueViperProApp extends StatelessWidget {
-  const BlueViperProApp({super.key});
+  /// Üretimde açık; widget testlerinde [showDeveloperCreditOverlay] false yapılarak
+  /// tam ekran kredi katmanı (8 sn AbsorbPointer) atlanır.
+  const BlueViperProApp({
+    super.key,
+    this.showDeveloperCreditOverlay = true,
+  });
+
+  final bool showDeveloperCreditOverlay;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'BlueViper',
       theme: FieldAppTheme.dark(),
+      builder: (context, navChild) {
+        final shell = navChild ?? const SizedBox.shrink();
+        if (!showDeveloperCreditOverlay) return shell;
+        return DeveloperCreditShell(child: shell);
+      },
       home: const ActivationGate(child: _AppBootstrapShell()),
     );
   }

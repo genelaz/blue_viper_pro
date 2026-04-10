@@ -24,6 +24,21 @@ class WeaponProfile {
   /// Katalog [WeaponType.id]; bos/null = eski / silahtan bagimsiz kayit.
   final String? weaponCatalogId;
 
+  /// Katalog [ScopeType.id]; deftere dürbün seçimini kalıcı yazar.
+  final String? scopeCatalogId;
+
+  /// Katalog [AmmoType.id].
+  final String? ammoCatalogId;
+
+  /// Secili [AmmoBarrelVariant.id] ([ammoCatalogId] ile birlikte).
+  final String? ammoVariantId;
+
+  /// Açıksa saha kronometre Vo’su korunur; mühimmat/namlu bandı seçimi Vo alanını değiştirmez.
+  final bool chronoMuzzleVelocityLocked;
+
+  /// Elle girilen namlu uzunluğu (inç). Varyant eşleştirme ve kayıt için tutulur.
+  final double? preferredBarrelInches;
+
   /// Spin drift (Miller); forma / defter kaydinda saklanir.
   final bool enableSpinDrift;
   final bool twistRightHanded;
@@ -52,6 +67,11 @@ class WeaponProfile {
     required this.clickUnit,
     required this.clickValue,
     this.weaponCatalogId,
+    this.scopeCatalogId,
+    this.ammoCatalogId,
+    this.ammoVariantId,
+    this.chronoMuzzleVelocityLocked = false,
+    this.preferredBarrelInches,
     this.enableSpinDrift = false,
     this.twistRightHanded = true,
     this.bulletMassGrains,
@@ -81,6 +101,11 @@ class WeaponProfile {
         'clickUnit': clickUnit.name,
         'clickValue': clickValue,
         if (weaponCatalogId != null && weaponCatalogId!.isNotEmpty) 'weaponCatalogId': weaponCatalogId,
+        if (scopeCatalogId != null && scopeCatalogId!.isNotEmpty) 'scopeCatalogId': scopeCatalogId,
+        if (ammoCatalogId != null && ammoCatalogId!.isNotEmpty) 'ammoCatalogId': ammoCatalogId,
+        if (ammoVariantId != null && ammoVariantId!.isNotEmpty) 'ammoVariantId': ammoVariantId,
+        'chronoMuzzleVelocityLocked': chronoMuzzleVelocityLocked,
+        if (preferredBarrelInches != null) 'preferredBarrelInches': preferredBarrelInches,
         'enableSpinDrift': enableSpinDrift,
         'twistRightHanded': twistRightHanded,
         if (bulletMassGrains != null) 'bulletMassGrains': bulletMassGrains,
@@ -118,6 +143,11 @@ class WeaponProfile {
     final sh = (map['sightHeightM'] as num?)?.toDouble() ?? 0.038;
     final zr = (map['zeroRangeM'] as num?)?.toDouble() ?? 100.0;
     final wcid = (map['weaponCatalogId'] as String?)?.trim();
+    final scid = (map['scopeCatalogId'] as String?)?.trim();
+    final aid = (map['ammoCatalogId'] as String?)?.trim();
+    final avid = (map['ammoVariantId'] as String?)?.trim();
+    final cmvl = map['chronoMuzzleVelocityLocked'];
+    final pbi = (map['preferredBarrelInches'] as num?)?.toDouble();
     final esd = map['enableSpinDrift'];
     final trh = map['twistRightHanded'];
     final bmg = (map['bulletMassGrains'] as num?)?.toDouble();
@@ -139,6 +169,11 @@ class WeaponProfile {
       clickUnit: unit,
       clickValue: cv,
       weaponCatalogId: (wcid != null && wcid.isNotEmpty) ? wcid : null,
+      scopeCatalogId: (scid != null && scid.isNotEmpty) ? scid : null,
+      ammoCatalogId: (aid != null && aid.isNotEmpty) ? aid : null,
+      ammoVariantId: (avid != null && avid.isNotEmpty) ? avid : null,
+      chronoMuzzleVelocityLocked: cmvl is bool ? cmvl : false,
+      preferredBarrelInches: pbi,
       enableSpinDrift: esd is bool ? esd : false,
       twistRightHanded: trh is bool ? trh : true,
       bulletMassGrains: bmg,
@@ -164,6 +199,14 @@ class WeaponProfile {
     double? clickValue,
     String? weaponCatalogId,
     bool clearWeaponCatalogId = false,
+    String? scopeCatalogId,
+    bool clearScopeCatalogId = false,
+    String? ammoCatalogId,
+    bool clearAmmoCatalogId = false,
+    String? ammoVariantId,
+    bool clearAmmoVariantId = false,
+    bool? chronoMuzzleVelocityLocked,
+    double? preferredBarrelInches,
     bool? enableSpinDrift,
     bool? twistRightHanded,
     double? bulletMassGrains,
@@ -187,6 +230,12 @@ class WeaponProfile {
       clickValue: clickValue ?? this.clickValue,
       weaponCatalogId:
           clearWeaponCatalogId ? null : (weaponCatalogId ?? this.weaponCatalogId),
+      scopeCatalogId: clearScopeCatalogId ? null : (scopeCatalogId ?? this.scopeCatalogId),
+      ammoCatalogId: clearAmmoCatalogId ? null : (ammoCatalogId ?? this.ammoCatalogId),
+      ammoVariantId: clearAmmoVariantId ? null : (ammoVariantId ?? this.ammoVariantId),
+      chronoMuzzleVelocityLocked:
+          chronoMuzzleVelocityLocked ?? this.chronoMuzzleVelocityLocked,
+      preferredBarrelInches: preferredBarrelInches ?? this.preferredBarrelInches,
       enableSpinDrift: enableSpinDrift ?? this.enableSpinDrift,
       twistRightHanded: twistRightHanded ?? this.twistRightHanded,
       bulletMassGrains: bulletMassGrains ?? this.bulletMassGrains,

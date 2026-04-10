@@ -17,6 +17,12 @@ class ManualWeaponFormValues {
     required this.twistRh,
     required this.grain,
     required this.bulletCalIn,
+    required this.muzzleVelocityMps,
+    required this.ballisticCoefficient,
+    required this.bcIsG7,
+    required this.zeroElevClicks,
+    required this.zeroWindClicks,
+    required this.reticleHint,
   });
 
   final String name;
@@ -31,6 +37,12 @@ class ManualWeaponFormValues {
   final bool twistRh;
   final String grain;
   final String bulletCalIn;
+  final String muzzleVelocityMps;
+  final String ballisticCoefficient;
+  final bool bcIsG7;
+  final String zeroElevClicks;
+  final String zeroWindClicks;
+  final String reticleHint;
 }
 
 class ManualWeaponEntryPage extends StatefulWidget {
@@ -52,7 +64,13 @@ class _ManualWeaponEntryPageState extends State<ManualWeaponEntryPage> {
   late final TextEditingController _twist;
   late final TextEditingController _grain;
   late final TextEditingController _calIn;
+  late final TextEditingController _mv;
+  late final TextEditingController _bc;
+  late final TextEditingController _zeroEl;
+  late final TextEditingController _zeroAz;
+  late final TextEditingController _reticle;
   bool _twistRh = true;
+  bool _bcG7 = false;
 
   @override
   void initState() {
@@ -68,6 +86,11 @@ class _ManualWeaponEntryPageState extends State<ManualWeaponEntryPage> {
     _twist = TextEditingController();
     _grain = TextEditingController();
     _calIn = TextEditingController();
+    _mv = TextEditingController();
+    _bc = TextEditingController();
+    _zeroEl = TextEditingController();
+    _zeroAz = TextEditingController();
+    _reticle = TextEditingController();
   }
 
   @override
@@ -83,6 +106,11 @@ class _ManualWeaponEntryPageState extends State<ManualWeaponEntryPage> {
     _twist.dispose();
     _grain.dispose();
     _calIn.dispose();
+    _mv.dispose();
+    _bc.dispose();
+    _zeroEl.dispose();
+    _zeroAz.dispose();
+    _reticle.dispose();
     super.dispose();
   }
 
@@ -108,6 +136,12 @@ class _ManualWeaponEntryPageState extends State<ManualWeaponEntryPage> {
       twistRh: _twistRh,
       grain: _grain.text.trim(),
       bulletCalIn: _calIn.text.trim(),
+      muzzleVelocityMps: _mv.text.trim(),
+      ballisticCoefficient: _bc.text.trim(),
+      bcIsG7: _bcG7,
+      zeroElevClicks: _zeroEl.text.trim(),
+      zeroWindClicks: _zeroAz.text.trim(),
+      reticleHint: _reticle.text.trim(),
     ));
   }
 
@@ -185,6 +219,52 @@ class _ManualWeaponEntryPageState extends State<ManualWeaponEntryPage> {
                   label: 'Mermi çapı, in',
                   controller: _calIn,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                ),
+                const StreLockSectionHeader('Balistik (forma)'),
+                StreLockToggleRow(
+                  label: 'BC türü: G7 (kapalıysa G1)',
+                  value: _bcG7,
+                  onChanged: (v) => setState(() => _bcG7 = v),
+                ),
+                StreLockLabeledField(
+                  label: 'Vo, m/s (boş: değişmez)',
+                  controller: _mv,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                ),
+                StreLockLabeledField(
+                  label: 'Balistik katsayı (boş: değişmez)',
+                  controller: _bc,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                ),
+                const StreLockSectionHeader('Sıfır kompanzasyon (not)'),
+                StreLockLabeledField(
+                  label: 'Dikey klik',
+                  controller: _zeroEl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                ),
+                StreLockLabeledField(
+                  label: 'Yatay klik',
+                  controller: _zeroAz,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                ),
+                StreLockLabeledField(
+                  label: 'Retikül adı / kod',
+                  controller: _reticle,
+                ),
+                const StreLockSectionHeader('Atmosfer'),
+                StreLockFullButton(
+                  label: 'ISA deniz seviyesi özeti (bilgi)',
+                  foregroundColor: StreLockBalColors.accentBlue,
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'ISA: 15 °C, 1013.25 hPa, 0 % yoğunluk irtifa — ana ekrandan düzenleyin; '
+                          'BLE (Kestrel) ile doldurmak için Atış hub → Bluetooth.',
+                        ),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 24),
               ],

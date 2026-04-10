@@ -15,9 +15,10 @@ void main() {
   });
 
   testWidgets('Uygulama ayağa kalkar ve atış göbeği görünür', (WidgetTester tester) async {
-    await tester.pumpWidget(const BlueViperProApp());
-    await tester.pump();
-    await tester.pumpAndSettle(const Duration(seconds: 6));
+    await tester.pumpWidget(
+      const BlueViperProApp(showDeveloperCreditOverlay: false),
+    );
+    await tester.pumpAndSettle();
 
     expect(find.text('Balistik hesap'), findsOneWidget);
     expect(find.text('Harita ve koordinat'), findsOneWidget);

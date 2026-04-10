@@ -1,5 +1,6 @@
 import 'package:blue_viper_pro/core/ballistics/ballistic_compare_ref_store.dart';
 import 'package:blue_viper_pro/core/ballistics/ballistics_engine.dart';
+import 'package:blue_viper_pro/core/ballistics/ballistics_output_convention.dart';
 import 'package:blue_viper_pro/core/ballistics/bc_kind.dart';
 import 'package:blue_viper_pro/core/ballistics/bc_mach_segment.dart';
 import 'package:blue_viper_pro/core/ballistics/click_units.dart';
@@ -53,6 +54,9 @@ void main() {
       customDragMachNodes: const [0.5, 1.2],
       customDragI: const [0.4, 0.55],
       targetCrossTrackMps: 1.5,
+      angularMilConvention: AngularMilConvention.trueAngle,
+      moaDisplayConvention: MoaDisplayConvention.trueArcminute,
+      invertCrossWindSign: true,
     );
     await BallisticCompareRefStore.save(input);
     final back = await BallisticCompareRefStore.load();
@@ -65,6 +69,9 @@ void main() {
     expect(back.bcMachSegments?.length, 3);
     expect(back.customDragMachNodes, input.customDragMachNodes);
     expect(back.clickUnit, ClickUnit.moa);
+    expect(back.angularMilConvention, AngularMilConvention.trueAngle);
+    expect(back.moaDisplayConvention, MoaDisplayConvention.trueArcminute);
+    expect(back.invertCrossWindSign, isTrue);
     await BallisticCompareRefStore.clear();
     expect(await BallisticCompareRefStore.load(), isNull);
   });

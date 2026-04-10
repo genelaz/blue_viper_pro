@@ -19,16 +19,21 @@ void main() {
     });
     await MapCollabIdentity.load();
 
-    await tester.pumpWidget(const BlueViperProApp());
+    await tester.pumpWidget(
+      const BlueViperProApp(showDeveloperCreditOverlay: false),
+    );
     await tester.pumpAndSettle();
 
-    // Bottom NavigationBar -> "Harita"
-    final haritaTab = find.descendant(
-      of: find.byType(NavigationBar),
-      matching: find.text('Harita'),
+    // Bottom NavigationBar -> Harita sekmesi (ikinci hedef).
+    final navBar = find.byType(NavigationBar);
+    expect(navBar, findsOneWidget);
+    final haritaIcon = find.descendant(
+      of: navBar,
+      matching: find.byIcon(Icons.map_outlined),
     );
-    expect(haritaTab, findsOneWidget);
-    await tester.tap(haritaTab);
+    expect(haritaIcon, findsOneWidget);
+    await tester.ensureVisible(haritaIcon);
+    await tester.tap(haritaIcon);
     await tester.pumpAndSettle();
 
     expect(find.byType(MapsPage), findsOneWidget);

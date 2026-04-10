@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/ballistics/ballistics_engine.dart';
+import '../../../core/ballistics/ballistics_output_convention.dart';
 import '../../../core/ballistics/click_units.dart';
 import 'strelock_ballistics_ui.dart';
 
@@ -19,6 +20,8 @@ class TrajectoryValidationPage extends StatefulWidget {
     required this.initialMvMode,
     required this.distanceController,
     required this.currentMvText,
+    this.currentBcText = '',
+    this.bcKindLabel = 'BC',
     required this.validateParentForm,
     required this.collectInput,
     required this.clickUnit,
@@ -29,6 +32,9 @@ class TrajectoryValidationPage extends StatefulWidget {
   final bool initialMvMode;
   final TextEditingController distanceController;
   final String currentMvText;
+  /// BC modunda salt okunur mevcut katsayı (forma bağlı).
+  final String currentBcText;
+  final String bcKindLabel;
   final bool Function() validateParentForm;
   final BallisticsSolveInput Function() collectInput;
   final ClickUnit clickUnit;
@@ -44,6 +50,8 @@ class _TrajectoryValidationPageState extends State<TrajectoryValidationPage> {
   final _obsCtrl = TextEditingController();
   String _resultLine = '—';
   Color _resultColor = StreLockBalColors.label;
+  double? _pendingMv;
+  double? _pendingBc;
 
   @override
   void initState() {
@@ -59,12 +67,23 @@ class _TrajectoryValidationPageState extends State<TrajectoryValidationPage> {
 
   double _parseClick() => double.tryParse(widget.clickValueText.replaceAll(',', '.')) ?? 0.1;
 
-  double _obsToMil(double obs) {
+  double _obsToMil(double obs, BallisticsSolveInput input) {
     return switch (_obsUnit) {
-      'moa' => obs / 3.438,
+      'moa' => observationMoaToCorrectionMil(
+          observationMoa: obs,
+          rangeMeters: input.distanceMeters,
+          moaConvention: input.moaDisplayConvention,
+          angularConvention: input.angularMilConvention,
+        ),
       'click' => switch (widget.clickUnit) {
           ClickUnit.mil => obs * _parseClick(),
-          ClickUnit.moa => obs * (_parseClick() / 3.438),
+          ClickUnit.moa =>
+            obs *
+                perClickMilForMoaScopeClick(
+                  clickValue: _parseClick(),
+                  moaClickConvention: input.moaDisplayConvention,
+                  angularMilConvention: input.angularMilConvention,
+                ),
           ClickUnit.cmPer100m => obs * (_parseClick() / 10.0),
           ClickUnit.inPer100yd => obs * (_parseClick() / 3.6),
         },
@@ -77,6 +96,8 @@ class _TrajectoryValidationPageState extends State<TrajectoryValidationPage> {
       setState(() {
         _resultLine = 'Ana form doğrulanamadı.';
         _resultColor = StreLockBalColors.resultRed;
+        _pendingMv = null;
+        _pendingBc = null;
       });
       return;
     }
@@ -85,11 +106,13 @@ class _TrajectoryValidationPageState extends State<TrajectoryValidationPage> {
       setState(() {
         _resultLine = 'Gözlem değeri girin.';
         _resultColor = StreLockBalColors.resultRed;
+        _pendingMv = null;
+        _pendingBc = null;
       });
       return;
     }
     final template = widget.collectInput();
-    final obsMil = _obsToMil(obs);
+    final obsMil = _obsToMil(obs, template);
 
     if (_tuneMv) {
       final mvNew = BallisticsEngine.trueMuzzleVelocityForObservedDrop(
@@ -100,14 +123,17 @@ class _TrajectoryValidationPageState extends State<TrajectoryValidationPage> {
         setState(() {
           _resultLine = 'Vo uydurulamıyor (işaret yönü / menzil kontrol).';
           _resultColor = StreLockBalColors.resultRed;
+          _pendingMv = null;
+          _pendingBc = null;
         });
         return;
       }
       setState(() {
         _resultLine = '${mvNew.toStringAsFixed(1)} m/s';
         _resultColor = StreLockBalColors.resultGreen;
+        _pendingMv = mvNew;
+        _pendingBc = null;
       });
-      Navigator.of(context).pop(TrajectoryValidationResult(mv: mvNew));
       return;
     }
 
@@ -119,14 +145,29 @@ class _TrajectoryValidationPageState extends State<TrajectoryValidationPage> {
       setState(() {
         _resultLine = 'BC uydurulamıyor (işaret yönü / menzil kontrol).';
         _resultColor = StreLockBalColors.resultRed;
+        _pendingMv = null;
+        _pendingBc = null;
       });
       return;
     }
     setState(() {
       _resultLine = bcNew.toStringAsFixed(4);
       _resultColor = StreLockBalColors.resultGreen;
+      _pendingBc = bcNew;
+      _pendingMv = null;
     });
-    Navigator.of(context).pop(TrajectoryValidationResult(bc: bcNew));
+  }
+
+  void _applyPending() {
+    final mv = _pendingMv;
+    final bc = _pendingBc;
+    if (mv != null) {
+      Navigator.of(context).pop(TrajectoryValidationResult(mv: mv));
+      return;
+    }
+    if (bc != null) {
+      Navigator.of(context).pop(TrajectoryValidationResult(bc: bc));
+    }
   }
 
   @override
@@ -157,7 +198,11 @@ class _TrajectoryValidationPageState extends State<TrajectoryValidationPage> {
                       child: _modeChip(
                         label: 'Hız (Vo)',
                         selected: _tuneMv,
-                        onTap: () => setState(() => _tuneMv = true),
+                        onTap: () => setState(() {
+                          _tuneMv = true;
+                          _pendingMv = null;
+                          _pendingBc = null;
+                        }),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -165,7 +210,11 @@ class _TrajectoryValidationPageState extends State<TrajectoryValidationPage> {
                       child: _modeChip(
                         label: 'BC',
                         selected: !_tuneMv,
-                        onTap: () => setState(() => _tuneMv = false),
+                        onTap: () => setState(() {
+                          _tuneMv = false;
+                          _pendingMv = null;
+                          _pendingBc = null;
+                        }),
                       ),
                     ),
                   ],
@@ -179,7 +228,8 @@ class _TrajectoryValidationPageState extends State<TrajectoryValidationPage> {
                 const SizedBox(height: 10),
                 Text(
                   'Doğrulama mesafesi mümkün olduğunca sıfırlama menzilinden uzak olmalı. '
-                  'Tambur testinden sonra dikey düzeltmeyi girin. Klik: «Silah» sekmesindeki klik birimi/değeri kullanılır.',
+                  'Tambur testinden sonra dikey düzeltmeyi girin. Klik: «Silah» sekmesindeki klik birimi/değeri; '
+                  'MOA/MRAD: «Ek» sekmesindeki mil ve MOA gösterim seçimiyle aynı tanım kullanılır.',
                   style: streLockLabelStyle(context).copyWith(fontSize: 12),
                 ),
                 const SizedBox(height: 12),
@@ -207,6 +257,27 @@ class _TrajectoryValidationPageState extends State<TrajectoryValidationPage> {
                     ),
                   ],
                 ),
+                if (!_tuneMv && widget.currentBcText.trim().isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Mevcut ${widget.bcKindLabel}',
+                          style: streLockLabelStyle(context),
+                        ),
+                      ),
+                      Text(
+                        widget.currentBcText.trim(),
+                        style: const TextStyle(
+                          color: StreLockBalColors.titleBlue,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 12),
                 const StreLockSectionHeader('Düzeltme birimi'),
                 StreLockDropdown<String>(
@@ -261,11 +332,28 @@ class _TrajectoryValidationPageState extends State<TrajectoryValidationPage> {
             elevation: 6,
             child: SafeArea(
               top: false,
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Kapat', style: TextStyle(fontWeight: FontWeight.w700)),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(
+                  children: [
+                    TextButton(
+                      onPressed: (_pendingMv != null || _pendingBc != null) ? _applyPending : null,
+                      child: Text(
+                        'Uygula',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: (_pendingMv != null || _pendingBc != null)
+                              ? StreLockBalColors.accentBlue
+                              : Colors.black38,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Kapat', style: TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -293,7 +381,7 @@ class _TrajectoryValidationPageState extends State<TrajectoryValidationPage> {
               label,
               style: TextStyle(
                 color: selected ? StreLockBalColors.fieldText : StreLockBalColors.label,
-                fontWeight: FontWeight.w800;
+                fontWeight: FontWeight.w800,
               ),
             ),
           ),
@@ -302,12 +390,3 @@ class _TrajectoryValidationPageState extends State<TrajectoryValidationPage> {
     );
   }
 }
-
-```
-
-I have a syntax error - semicolon instead of comma in TextStyle
-</think>
-
-
-<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>
-StrReplace

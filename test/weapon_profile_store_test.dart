@@ -75,6 +75,11 @@ void main() {
       clickUnit: ClickUnit.mil,
       clickValue: 0.1,
       weaponCatalogId: 'tr_knt76',
+      scopeCatalogId: 'scope_nx8',
+      ammoCatalogId: 'ammo_match',
+      ammoVariantId: 'var_20in',
+      chronoMuzzleVelocityLocked: true,
+      preferredBarrelInches: 21.5,
       enableSpinDrift: true,
       twistRightHanded: false,
       bulletMassGrains: 175,
@@ -91,6 +96,11 @@ void main() {
     expect(decoded.muzzleVelocityMps, original.muzzleVelocityMps);
     expect(decoded.bcKind, original.bcKind);
     expect(decoded.weaponCatalogId, 'tr_knt76');
+    expect(decoded.scopeCatalogId, 'scope_nx8');
+    expect(decoded.ammoCatalogId, 'ammo_match');
+    expect(decoded.ammoVariantId, 'var_20in');
+    expect(decoded.chronoMuzzleVelocityLocked, true);
+    expect(decoded.preferredBarrelInches, 21.5);
     expect(decoded.enableSpinDrift, true);
     expect(decoded.twistRightHanded, false);
     expect(decoded.bulletMassGrains, 175);

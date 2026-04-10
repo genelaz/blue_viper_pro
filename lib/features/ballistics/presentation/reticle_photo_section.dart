@@ -142,30 +142,7 @@ class _ReticlePhotoSectionState extends State<ReticlePhotoSection> {
                         ),
                       )
                     else
-                      Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          const ReticlePreviewBackdrop(),
-                          Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Text(
-                                'Foto yok — saha benzeri önizleme\n«Foto seç» ile net görüntü ekleyin',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white.withValues(alpha: 0.92),
-                                  shadows: const [
-                                    Shadow(blurRadius: 6, color: Color(0x66000000)),
-                                    Shadow(blurRadius: 2, offset: Offset(0, 1), color: Color(0x99000000)),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                      const ReticlePreviewBackdrop(),
                     CustomPaint(
                       painter: ReticleCanvasPainter(
                         def: def,
@@ -174,6 +151,31 @@ class _ReticlePhotoSectionState extends State<ReticlePhotoSection> {
                         unitIsMoa: widget.unitIsMoa,
                       ),
                     ),
+                    if (_bytes == null)
+                      Positioned(
+                        left: 6,
+                        right: 6,
+                        bottom: 6,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.52),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            child: Text(
+                              'Örnek dürbün alanı (vektör). Kendi saha fotoğrafınız için «Foto seç».',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white.withValues(alpha: 0.94),
+                                height: 1.25,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),

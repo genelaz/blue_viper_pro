@@ -29,7 +29,7 @@ void main() {
         clickValue: 0.1,
       ),
     );
-    final dropM = out.dropMil * 500 / 1000;
+    final dropM = out.verticalHoldDeltaMeters;
     expect(out.timeOfFlightMs, greaterThan(550));
     expect(out.timeOfFlightMs, lessThan(950));
     expect(dropM, greaterThan(1.2));

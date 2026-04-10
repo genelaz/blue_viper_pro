@@ -11,11 +11,15 @@ class ReticleCanvasPainter extends CustomPainter {
   final double holdLeftUnits;
   final bool unitIsMoa;
 
+  /// Açık dürbün / beyaz alan önizlemesi (StreLok benzeri); yeşil gece görüş modu için false.
+  final bool lightScopeField;
+
   ReticleCanvasPainter({
     required this.def,
     required this.holdUpUnits,
     required this.holdLeftUnits,
     required this.unitIsMoa,
+    this.lightScopeField = true,
   });
 
   @override
@@ -26,17 +30,23 @@ class ReticleCanvasPainter extends CustomPainter {
     final pxPerUnit = r / vr;
 
     final grid = Paint()
-      ..color = Colors.green.shade800
-      ..strokeWidth = 1.0;
+      ..color = lightScopeField
+          ? const Color(0xFF141414).withValues(alpha: 0.48)
+          : Colors.green.shade800
+      ..strokeWidth = lightScopeField ? 0.85 : 1.0;
     final major = Paint()
-      ..color = Colors.lightGreenAccent.shade700
-      ..strokeWidth = 1.4;
+      ..color = lightScopeField
+          ? const Color(0xFF050505).withValues(alpha: 0.9)
+          : Colors.lightGreenAccent.shade700
+      ..strokeWidth = lightScopeField ? 1.15 : 1.4;
     final rim = Paint()
       ..style = PaintingStyle.stroke
       ..color = Colors.grey.shade700
       ..strokeWidth = 1.0;
 
-    canvas.drawCircle(c, r, rim);
+    if (!lightScopeField) {
+      canvas.drawCircle(c, r, rim);
+    }
 
     switch (def.pattern) {
       case 'mil_dot':
@@ -60,9 +70,18 @@ class ReticleCanvasPainter extends CustomPainter {
     final hu = holdUpUnits;
     final hl = holdLeftUnits;
     final hp = Offset(c.dx - hl * pxPerUnit, c.dy - hu * pxPerUnit);
-    canvas.drawCircle(hp, 5, Paint()..color = Colors.redAccent);
-    canvas.drawLine(c, hp, Paint()..color = Colors.redAccent..strokeWidth = 1.6);
-    canvas.drawCircle(hp, 2, Paint()..color = Colors.white);
+    final lineToHold = Paint()
+      ..color = lightScopeField ? const Color(0xFFC62828) : Colors.redAccent
+      ..strokeWidth = lightScopeField ? 1.4 : 1.6;
+    canvas.drawLine(c, hp, lineToHold);
+    if (lightScopeField) {
+      canvas.drawCircle(hp, 8, Paint()..color = const Color(0xFFF9A825));
+      canvas.drawCircle(hp, 5, Paint()..color = const Color(0xFFFFFDE7));
+      canvas.drawCircle(hp, 2.2, Paint()..color = const Color(0xFF4E342E));
+    } else {
+      canvas.drawCircle(hp, 5, Paint()..color = Colors.redAccent);
+      canvas.drawCircle(hp, 2, Paint()..color = Colors.white);
+    }
   }
 
   void _hash(Canvas canvas, Offset c, double r, double px, Paint g, Paint mj) {
@@ -71,12 +90,13 @@ class ReticleCanvasPainter extends CustomPainter {
     if (min <= 0) return;
     final steps = (r / px / min).ceil();
     final majorEvery = (maj / min).round().clamp(1, 10000);
+    final crossW = lightScopeField ? 2.0 : 1.8;
     final crossH = Paint()
       ..color = mj.color
-      ..strokeWidth = 1.8;
+      ..strokeWidth = crossW;
     final crossV = Paint()
       ..color = mj.color
-      ..strokeWidth = 1.8;
+      ..strokeWidth = crossW;
     for (var i = -steps; i <= steps; i++) {
       if (i == 0) continue;
       final u = i * min;
@@ -148,5 +168,6 @@ class ReticleCanvasPainter extends CustomPainter {
       old.holdUpUnits != holdUpUnits ||
       old.holdLeftUnits != holdLeftUnits ||
       old.def.id != def.id ||
-      old.def.pattern != def.pattern;
+      old.def.pattern != def.pattern ||
+      old.lightScopeField != lightScopeField;
 }

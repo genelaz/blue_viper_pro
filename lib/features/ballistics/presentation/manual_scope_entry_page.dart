@@ -12,6 +12,10 @@ class ManualScopeFormValues {
     required this.maxMag,
     required this.refMag,
     required this.notes,
+    required this.firstFocalPlane,
+    required this.verticalClickCmPer100m,
+    required this.horizontalClickCmPer100m,
+    required this.reticleCode,
   });
 
   final String name;
@@ -21,6 +25,10 @@ class ManualScopeFormValues {
   final String maxMag;
   final String refMag;
   final String notes;
+  final bool firstFocalPlane;
+  final String verticalClickCmPer100m;
+  final String horizontalClickCmPer100m;
+  final String reticleCode;
 }
 
 class ManualScopeEntryPage extends StatefulWidget {
@@ -37,7 +45,11 @@ class _ManualScopeEntryPageState extends State<ManualScopeEntryPage> {
   late final TextEditingController _maxMag;
   late final TextEditingController _refMag;
   late final TextEditingController _notes;
+  late final TextEditingController _vCm;
+  late final TextEditingController _hCm;
+  late final TextEditingController _reticle;
   ClickUnit _unit = ClickUnit.mil;
+  bool _ffp = true;
 
   @override
   void initState() {
@@ -48,6 +60,9 @@ class _ManualScopeEntryPageState extends State<ManualScopeEntryPage> {
     _maxMag = TextEditingController();
     _refMag = TextEditingController();
     _notes = TextEditingController();
+    _vCm = TextEditingController();
+    _hCm = TextEditingController();
+    _reticle = TextEditingController();
   }
 
   @override
@@ -58,6 +73,9 @@ class _ManualScopeEntryPageState extends State<ManualScopeEntryPage> {
     _maxMag.dispose();
     _refMag.dispose();
     _notes.dispose();
+    _vCm.dispose();
+    _hCm.dispose();
+    _reticle.dispose();
     super.dispose();
   }
 
@@ -78,6 +96,10 @@ class _ManualScopeEntryPageState extends State<ManualScopeEntryPage> {
       maxMag: _maxMag.text.trim(),
       refMag: _refMag.text.trim(),
       notes: _notes.text.trim(),
+      firstFocalPlane: _ffp,
+      verticalClickCmPer100m: _vCm.text.trim(),
+      horizontalClickCmPer100m: _hCm.text.trim(),
+      reticleCode: _reticle.text.trim(),
     ));
   }
 
@@ -110,6 +132,15 @@ class _ManualScopeEntryPageState extends State<ManualScopeEntryPage> {
                 ),
                 const StreLockSectionHeader('Dürbün'),
                 StreLockLabeledField(label: 'Dürbün adı *', controller: _name, fieldWidth: 180),
+                StreLockToggleRow(
+                  label: 'İlk odak düzlemi (FFP)',
+                  value: _ffp,
+                  onChanged: (v) => setState(() => _ffp = v),
+                ),
+                Text(
+                  'SFP’de büyütme alanları ve retikül referansı anlamlıdır; FFP’de subtension büyütmeye bağlı değişmez.',
+                  style: streLockLabelStyle(context).copyWith(fontSize: 11),
+                ),
                 StreLockDropdown<ClickUnit>(
                   label: 'Klik birimi',
                   value: _unit,
@@ -123,6 +154,20 @@ class _ManualScopeEntryPageState extends State<ManualScopeEntryPage> {
                   label: 'Klik değeri *',
                   controller: _clickVal,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                ),
+                StreLockLabeledField(
+                  label: 'Dikey klik @100 m (cm)',
+                  controller: _vCm,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                ),
+                StreLockLabeledField(
+                  label: 'Yatay klik @100 m (cm)',
+                  controller: _hCm,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                ),
+                StreLockLabeledField(
+                  label: 'Retikül kodu / adı',
+                  controller: _reticle,
                 ),
                 const StreLockSectionHeader('Büyütme (opsiyonel)'),
                 StreLockLabeledField(
@@ -145,6 +190,14 @@ class _ManualScopeEntryPageState extends State<ManualScopeEntryPage> {
                   controller: _notes,
                   maxLines: 3,
                   fieldWidth: 200,
+                ),
+                Text(
+                  'Uyarı: Klik cm değerleri üretici tablosundan doğrulanmalı; yanlış cm retikül hesaplarını bozar.',
+                  style: TextStyle(
+                    color: StreLockBalColors.resultRed.withValues(alpha: 0.9),
+                    fontSize: 11,
+                    height: 1.35,
+                  ),
                 ),
                 const SizedBox(height: 16),
               ],

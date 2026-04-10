@@ -118,6 +118,12 @@ class ScopeType {
   final double? referenceMagnification;
   /// Serbest metin (objektif çap, tüp çapı, üretici kodu vb.).
   final String? notes;
+  /// Kullanıcı dürbünü için FFP varsayımı; forma uygulanır.
+  final bool? defaultFirstFocalPlane;
+  /// 100 m'de dikey klik başına cm (bilgi / forma ipucu).
+  final double? verticalClickCmPer100m;
+  /// 100 m'de yatay klik başına cm.
+  final double? horizontalClickCmPer100m;
 
   const ScopeType({
     required this.id,
@@ -128,6 +134,9 @@ class ScopeType {
     this.maxMagnification,
     this.referenceMagnification,
     this.notes,
+    this.defaultFirstFocalPlane,
+    this.verticalClickCmPer100m,
+    this.horizontalClickCmPer100m,
   });
 
   Map<String, dynamic> toMap() => {
@@ -139,6 +148,9 @@ class ScopeType {
         if (maxMagnification != null) 'maxMagnification': maxMagnification,
         if (referenceMagnification != null) 'referenceMagnification': referenceMagnification,
         if (notes != null && notes!.isNotEmpty) 'notes': notes,
+        if (defaultFirstFocalPlane != null) 'defaultFirstFocalPlane': defaultFirstFocalPlane,
+        if (verticalClickCmPer100m != null) 'verticalClickCmPer100m': verticalClickCmPer100m,
+        if (horizontalClickCmPer100m != null) 'horizontalClickCmPer100m': horizontalClickCmPer100m,
       };
 
   factory ScopeType.fromMap(Map<String, dynamic> map) => ScopeType(
@@ -153,6 +165,9 @@ class ScopeType {
         maxMagnification: (map['maxMagnification'] as num?)?.toDouble(),
         referenceMagnification: (map['referenceMagnification'] as num?)?.toDouble(),
         notes: map['notes'] as String?,
+        defaultFirstFocalPlane: map['defaultFirstFocalPlane'] is bool ? map['defaultFirstFocalPlane'] as bool : null,
+        verticalClickCmPer100m: (map['verticalClickCmPer100m'] as num?)?.toDouble(),
+        horizontalClickCmPer100m: (map['horizontalClickCmPer100m'] as num?)?.toDouble(),
       );
 }
 

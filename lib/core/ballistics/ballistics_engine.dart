@@ -8,6 +8,7 @@ import 'click_units.dart';
 import 'custom_drag_table.dart';
 import 'g1_drag.dart';
 import 'g7_drag.dart';
+import 'ballistics_output_convention.dart';
 import 'powder_temperature.dart';
 
 class BallisticsSolveInput {
@@ -57,6 +58,15 @@ class BallisticsSolveInput {
   /// Hedefin çizgisine dik hız bileşeni (+ = hedef sağa, m/s). Küçük açı öncüsü.
   final double targetCrossTrackMps;
 
+  /// Mil gösterimi: küçük açı (`Δ/R×1000`) veya `atan2(Δ,R)×1000`.
+  final AngularMilConvention angularMilConvention;
+
+  /// MOA gösterimi (tıklar yine mil üzerinden).
+  final MoaDisplayConvention moaDisplayConvention;
+
+  /// Bazı dürbün / uygulama işaretleri için yan rüzgâr girişini tersler (çözüme giren değer).
+  final bool invertCrossWindSign;
+
   BallisticsSolveInput({
     required this.distanceMeters,
     required this.muzzleVelocityMps,
@@ -88,6 +98,9 @@ class BallisticsSolveInput {
     this.customDragMachNodes,
     this.customDragI,
     this.targetCrossTrackMps = 0,
+    this.angularMilConvention = AngularMilConvention.linear,
+    this.moaDisplayConvention = MoaDisplayConvention.legacyFromMil,
+    this.invertCrossWindSign = false,
   });
 
   /// Eski çağrılar: sadece G1 ve temel alanlar.
@@ -152,6 +165,9 @@ class BallisticsSolveInput {
       customDragMachNodes: customDragMachNodes,
       customDragI: customDragI,
       targetCrossTrackMps: targetCrossTrackMps,
+      angularMilConvention: angularMilConvention,
+      moaDisplayConvention: moaDisplayConvention,
+      invertCrossWindSign: invertCrossWindSign,
     );
   }
 
@@ -189,6 +205,9 @@ class BallisticsSolveInput {
       customDragMachNodes: customDragMachNodes,
       customDragI: customDragI,
       targetCrossTrackMps: shot.targetCrossTrackMps,
+      angularMilConvention: shot.angularMilConvention,
+      moaDisplayConvention: shot.moaDisplayConvention,
+      invertCrossWindSign: shot.invertCrossWindSign,
     );
   }
 }
@@ -204,6 +223,10 @@ class BallisticsSolveOutput {
   final double windClicks;
   final double adjustedMuzzleVelocityMps;
   final double appliedBallisticCoefficient;
+  /// Hedef mesafesindeki mermi hızı (m/s).
+  final double impactVelocityMps;
+  /// 0.5·m·v²; mermi kütlesi yoksa null.
+  final double? impactEnergyJoules;
 
   /// Hareketli hedef öncüsü (mil); çizgiye dik hedef hızından.
   final double leadMil;
@@ -215,6 +238,15 @@ class BallisticsSolveOutput {
   final double combinedLateralMoa;
   final double combinedLateralClicks;
 
+  /// Hedefte dikey tutma (LOS’a göre mermi konumu), m — cm için ×100.
+  final double verticalHoldDeltaMeters;
+  /// Saf yanal (rüzgâr + spin/Coriolis yanal), m.
+  final double windLateralDeltaMeters;
+  /// Öncü (çizgiye dik hedef hızı × TOF), m — cm için ×100.
+  final double leadLateralDeltaMeters;
+  /// Öncü dahil toplam yanal sapma, m.
+  final double combinedLateralDeltaMeters;
+
   const BallisticsSolveOutput({
     required this.dropMil,
     required this.dropMoa,
@@ -225,12 +257,18 @@ class BallisticsSolveOutput {
     required this.windClicks,
     required this.adjustedMuzzleVelocityMps,
     required this.appliedBallisticCoefficient,
+    required this.impactVelocityMps,
+    required this.impactEnergyJoules,
     required this.leadMil,
     required this.leadMoa,
     required this.leadClicks,
     required this.combinedLateralMil,
     required this.combinedLateralMoa,
     required this.combinedLateralClicks,
+    required this.verticalHoldDeltaMeters,
+    required this.windLateralDeltaMeters,
+    required this.leadLateralDeltaMeters,
+    required this.combinedLateralDeltaMeters,
   });
 }
 
@@ -271,6 +309,7 @@ class BallisticsEngine {
     final sound = soundSpeedForSolve(i.temperatureC);
     const g = 9.80665;
     final d = i.distanceMeters.clamp(1.0, 100_000.0);
+    final windCross = i.invertCrossWindSign ? -i.crossWindMps : i.crossWindMps;
     final v0 = vPowder.clamp(50.0, 2000.0);
 
     var elevM = i.targetElevationDeltaMeters;
@@ -326,7 +365,7 @@ class BallisticsEngine {
         rhoRatio: rhoRatio,
         sound: sound,
         g: g,
-        windCrossMps: i.crossWindMps,
+        windCrossMps: windCross,
       );
       if (s.x >= d && prevX < d) {
         final f = (d - prevX) / (s.x - prevX);
@@ -370,43 +409,75 @@ class BallisticsEngine {
       caliberInches: i.bulletCaliberInches,
       twistInchesPerTurn: i.twistInchesPerTurn,
       enableAeroJump: i.enableAerodynamicJump,
-      crossWindMps: i.crossWindMps,
+      crossWindMps: windCross,
     );
 
     final yTot = yAt + sec.coriolisVerticalM + sec.aeroJumpVerticalM;
     final zTot = zAt + sec.coriolisLateralM + sec.spinDriftM;
 
-    final dropMil = (elevM - yTot) / d * 1000.0;
-    final windMil = zTot / d * 1000.0;
-    final dropMoa = dropMil * 3.438;
-    final windMoa = windMil * 3.438;
+    final dropDeltaM = elevM - yTot;
+    final windDeltaM = zTot;
+    final leadDeltaM = i.targetCrossTrackMps * tAt;
+    final latCombinedDeltaM = windDeltaM + leadDeltaM;
+
+    final milConv = i.angularMilConvention;
+    final moaConv = i.moaDisplayConvention;
+    final dropMil = milFromLateralMeters(deltaM: dropDeltaM, rangeM: d, convention: milConv);
+    final windMil = milFromLateralMeters(deltaM: windDeltaM, rangeM: d, convention: milConv);
+    final leadMil = milFromLateralMeters(deltaM: leadDeltaM, rangeM: d, convention: milConv);
+    final combinedLateralMil =
+        milFromLateralMeters(deltaM: latCombinedDeltaM, rangeM: d, convention: milConv);
+
+    final dropMoa =
+        moaFromMilAndGeometry(mil: dropMil, deltaM: dropDeltaM, rangeM: d, convention: moaConv);
+    final windMoa =
+        moaFromMilAndGeometry(mil: windMil, deltaM: windDeltaM, rangeM: d, convention: moaConv);
+    final leadMoa =
+        moaFromMilAndGeometry(mil: leadMil, deltaM: leadDeltaM, rangeM: d, convention: moaConv);
+    final combinedLateralMoa = moaFromMilAndGeometry(
+      mil: combinedLateralMil,
+      deltaM: latCombinedDeltaM,
+      rangeM: d,
+      convention: moaConv,
+    );
     final tofMs = tAt * 1000.0;
 
-    final clickElev = _clicksForCorrectionMil(
+    final clickElev = clicksForCorrectionMil(
       correctionMil: dropMil,
       clickUnit: i.clickUnit,
       clickValue: i.clickValue,
+      moaClickConvention: i.moaDisplayConvention,
+      angularMilConvention: i.angularMilConvention,
     );
-    final clickWind = _clicksForCorrectionMil(
+    final clickWind = clicksForCorrectionMil(
       correctionMil: windMil,
       clickUnit: i.clickUnit,
       clickValue: i.clickValue,
+      moaClickConvention: i.moaDisplayConvention,
+      angularMilConvention: i.angularMilConvention,
     );
 
-    final leadMil = (i.targetCrossTrackMps * tAt / d) * 1000.0;
-    final leadMoa = leadMil * 3.438;
-    final combinedLateralMil = windMil + leadMil;
-    final combinedLateralMoa = combinedLateralMil * 3.438;
-    final clickLead = _clicksForCorrectionMil(
+    final clickLead = clicksForCorrectionMil(
       correctionMil: leadMil,
       clickUnit: i.clickUnit,
       clickValue: i.clickValue,
+      moaClickConvention: i.moaDisplayConvention,
+      angularMilConvention: i.angularMilConvention,
     );
-    final clickCombinedLat = _clicksForCorrectionMil(
+    final clickCombinedLat = clicksForCorrectionMil(
       correctionMil: combinedLateralMil,
       clickUnit: i.clickUnit,
       clickValue: i.clickValue,
+      moaClickConvention: i.moaDisplayConvention,
+      angularMilConvention: i.angularMilConvention,
     );
+
+    double? ej;
+    final gr = i.bulletMassGrains;
+    if (gr != null && gr > 0) {
+      final kg = gr * 64.79891e-6;
+      ej = 0.5 * kg * vmAt * vmAt;
+    }
 
     return BallisticsSolveOutput(
       dropMil: dropMil,
@@ -418,12 +489,18 @@ class BallisticsEngine {
       windClicks: clickWind,
       adjustedMuzzleVelocityMps: vPowder,
       appliedBallisticCoefficient: bc,
+      impactVelocityMps: vmAt,
+      impactEnergyJoules: ej,
       leadMil: leadMil,
       leadMoa: leadMoa,
       leadClicks: clickLead,
       combinedLateralMil: combinedLateralMil,
       combinedLateralMoa: combinedLateralMoa,
       combinedLateralClicks: clickCombinedLat,
+      verticalHoldDeltaMeters: dropDeltaM,
+      windLateralDeltaMeters: windDeltaM,
+      leadLateralDeltaMeters: leadDeltaM,
+      combinedLateralDeltaMeters: latCombinedDeltaM,
     );
   }
 
@@ -469,6 +546,9 @@ class BallisticsEngine {
           customDragMachNodes: template.customDragMachNodes,
           customDragI: template.customDragI,
           targetCrossTrackMps: template.targetCrossTrackMps,
+          angularMilConvention: template.angularMilConvention,
+          moaDisplayConvention: template.moaDisplayConvention,
+          invertCrossWindSign: template.invertCrossWindSign,
         ));
     for (var k = 0; k < iterations; k++) {
       final mid = (lo + hi) * 0.5;
@@ -524,6 +604,9 @@ class BallisticsEngine {
           customDragMachNodes: template.customDragMachNodes,
           customDragI: template.customDragI,
           targetCrossTrackMps: template.targetCrossTrackMps,
+          angularMilConvention: template.angularMilConvention,
+          moaDisplayConvention: template.moaDisplayConvention,
+          invertCrossWindSign: template.invertCrossWindSign,
         ));
     for (var k = 0; k < iterations; k++) {
       final mid = (lo + hi) * 0.5;
@@ -541,25 +624,72 @@ class BallisticsEngine {
 class RangeTableRow {
   final int rangeMeters;
   final double dropMil;
+  final double dropMoa;
   final double windMil;
+  final double windMoa;
   final double leadMil;
+  final double leadMoa;
   final double combinedLateralMil;
+  final double combinedLateralMoa;
   final double tofMs;
   final double elevClicks;
   final double windClicks;
+  final double leadClicks;
   final double combinedLateralClicks;
+  final double impactVelocityMps;
+  final double? impactEnergyJoules;
+  final double dropCmApprox;
+  final double windCmApprox;
+  final double leadCmApprox;
+  final double combinedLateralCmApprox;
 
   const RangeTableRow({
     required this.rangeMeters,
     required this.dropMil,
+    required this.dropMoa,
     required this.windMil,
+    required this.windMoa,
     required this.leadMil,
+    required this.leadMoa,
     required this.combinedLateralMil,
+    required this.combinedLateralMoa,
     required this.tofMs,
     required this.elevClicks,
     required this.windClicks,
+    required this.leadClicks,
     required this.combinedLateralClicks,
+    required this.impactVelocityMps,
+    required this.impactEnergyJoules,
+    required this.dropCmApprox,
+    required this.windCmApprox,
+    required this.leadCmApprox,
+    required this.combinedLateralCmApprox,
   });
+
+  factory RangeTableRow.fromSolveOutput(int rangeMeters, BallisticsSolveOutput o) {
+    return RangeTableRow(
+      rangeMeters: rangeMeters,
+      dropMil: o.dropMil,
+      dropMoa: o.dropMoa,
+      windMil: o.windMil,
+      windMoa: o.windMoa,
+      leadMil: o.leadMil,
+      leadMoa: o.leadMoa,
+      combinedLateralMil: o.combinedLateralMil,
+      combinedLateralMoa: o.combinedLateralMoa,
+      tofMs: o.timeOfFlightMs,
+      elevClicks: o.clicks,
+      windClicks: o.windClicks,
+      leadClicks: o.leadClicks,
+      combinedLateralClicks: o.combinedLateralClicks,
+      impactVelocityMps: o.impactVelocityMps,
+      impactEnergyJoules: o.impactEnergyJoules,
+      dropCmApprox: o.verticalHoldDeltaMeters * 100.0,
+      windCmApprox: o.windLateralDeltaMeters * 100.0,
+      leadCmApprox: o.leadLateralDeltaMeters * 100.0,
+      combinedLateralCmApprox: o.combinedLateralDeltaMeters * 100.0,
+    );
+  }
 }
 
 List<RangeTableRow> buildBallisticsRangeTable({
@@ -603,21 +733,12 @@ List<RangeTableRow> buildBallisticsRangeTable({
         customDragMachNodes: template.customDragMachNodes,
         customDragI: template.customDragI,
         targetCrossTrackMps: template.targetCrossTrackMps,
+        angularMilConvention: template.angularMilConvention,
+        moaDisplayConvention: template.moaDisplayConvention,
+        invertCrossWindSign: template.invertCrossWindSign,
       ),
     );
-    rows.add(
-      RangeTableRow(
-        rangeMeters: r,
-        dropMil: out.dropMil,
-        windMil: out.windMil,
-        leadMil: out.leadMil,
-        combinedLateralMil: out.combinedLateralMil,
-        tofMs: out.timeOfFlightMs,
-        elevClicks: out.clicks,
-        windClicks: out.windClicks,
-        combinedLateralClicks: out.combinedLateralClicks,
-      ),
-    );
+    rows.add(RangeTableRow.fromSolveOutput(r, out));
   }
   return rows;
 }
@@ -842,25 +963,3 @@ void _rk4Step3({
   s.t += dt;
 }
 
-double _clicksForCorrectionMil({
-  required double correctionMil,
-  required ClickUnit clickUnit,
-  required double clickValue,
-}) {
-  double perClickMil() {
-    switch (clickUnit) {
-      case ClickUnit.mil:
-        return clickValue;
-      case ClickUnit.moa:
-        return clickValue / 3.438;
-      case ClickUnit.cmPer100m:
-        return clickValue / 10.0;
-      case ClickUnit.inPer100yd:
-        return clickValue / 3.6;
-    }
-  }
-
-  final v = perClickMil();
-  if (v <= 0) return 0;
-  return correctionMil / v;
-}
