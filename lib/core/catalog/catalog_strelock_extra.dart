@@ -112,7 +112,7 @@ abstract final class CatalogStrelockExtra {
     ScopeType(id: 'slx_swarovski_dS_gen2', name: 'Swarovski dS Gen II 5-25×52 (dijital)', clickUnit: ClickUnit.moa, clickValue: 0.25),
     ScopeType(id: 'slx_swarovski_z8i_tac', name: 'Swarovski Z8i 3.5-18×50 P (0.1 mil)', clickUnit: ClickUnit.mil, clickValue: 0.1),
     ScopeType(id: 'slx_generic_mil34', name: 'Genel 34 mm tüp 5-25×56 (0.1 mil, nominal)', clickUnit: ClickUnit.mil, clickValue: 0.1),
-    ScopeType(id: 'slx_generic_moa1', name: 'Genel 1\" tüp 3-9×40 (1/4 MOA)', clickUnit: ClickUnit.moa, clickValue: 0.25),
+    ScopeType(id: 'slx_generic_moa1', name: 'Genel 1" tüp 3-9×40 (1/4 MOA)', clickUnit: ClickUnit.moa, clickValue: 0.25),
     ScopeType(id: 'slx_generic_mil30', name: 'Genel 30 mm tüp 4-16×50 (0.1 mil)', clickUnit: ClickUnit.mil, clickValue: 0.1),
   ];
 

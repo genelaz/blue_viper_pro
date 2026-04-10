@@ -127,6 +127,7 @@ String rangeTableToCsv(List<RangeTableRow> rows) {
       '${r.impactEnergyJoules?.toStringAsFixed(0) ?? ''},'
       '${r.dropCmApprox.toStringAsFixed(1)},'
       '${r.windCmApprox.toStringAsFixed(1)},'
+      '${r.leadCmApprox.toStringAsFixed(1)},'
       '${r.combinedLateralCmApprox.toStringAsFixed(1)}',
     );
   }
