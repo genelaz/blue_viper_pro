@@ -1,11 +1,11 @@
-import 'dart:async' show StreamSubscription, Timer, unawaited;
+import 'dart:async' show StreamSubscription, TimeoutException, Timer, unawaited;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/ballistics/ballistic_compare_ref_store.dart';
-import 'package:environment_sensors/environment_sensors.dart';
+import 'package:sensors_plus/sensors_plus.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../../core/ballistics/ballistics_corrections.dart';
@@ -145,8 +145,7 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
   bool _invertCrossWindSign = false;
   bool _energyFtLbf = false;
   bool _useInternalBarometer = false;
-  StreamSubscription<double>? _barometerSub;
-  final EnvironmentSensors _environmentSensors = EnvironmentSensors();
+  StreamSubscription<BarometerEvent>? _barometerSub;
 
   WeaponType? _selectedWeapon;
   ScopeType? _selectedScope;
@@ -316,7 +315,17 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
       await _persistBallisticsDisplayPrefs();
       return;
     }
-    final ok = await _environmentSensors.getSensorAvailable(SensorType.Pressure);
+    var ok = false;
+    try {
+      await barometerEventStream(
+        samplingPeriod: SensorInterval.normalInterval,
+      ).first.timeout(const Duration(seconds: 2));
+      ok = true;
+    } on TimeoutException {
+      ok = false;
+    } on Object {
+      ok = false;
+    }
     if (!ok) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('ballistics_internal_barometer_v1', false);
@@ -330,10 +339,12 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
     if (mounted) setState(() => _useInternalBarometer = true);
     await _persistBallisticsDisplayPrefs();
     _pressureUnit = _PressureUnit.hpa;
-    _barometerSub = _environmentSensors.pressure.listen((hpa) {
+    _barometerSub = barometerEventStream(
+      samplingPeriod: SensorInterval.normalInterval,
+    ).listen((e) {
       if (!mounted) return;
       setState(() {
-        _pressureCtrl.text = hpa.toStringAsFixed(1);
+        _pressureCtrl.text = e.pressure.toStringAsFixed(1);
       });
     });
   }

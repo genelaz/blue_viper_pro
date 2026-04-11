@@ -1,7 +1,29 @@
+import com.android.build.gradle.AppExtension
+import com.android.build.gradle.LibraryExtension
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 allprojects {
     repositories {
         google()
         mavenCentral()
+    }
+}
+
+// Bazı üçüncü taraf Android eklentileri Java 8 / Kotlin hedefi karıştırabiliyor; release derlemesi için 17'de hizala.
+subprojects {
+    afterEvaluate {
+        extensions.findByType(LibraryExtension::class.java)?.compileOptions {
+            sourceCompatibility = JavaVersion.VERSION_17
+            targetCompatibility = JavaVersion.VERSION_17
+        }
+        extensions.findByType(AppExtension::class.java)?.compileOptions {
+            sourceCompatibility = JavaVersion.VERSION_17
+            targetCompatibility = JavaVersion.VERSION_17
+        }
+        tasks.withType<KotlinCompile>().configureEach {
+            compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
+        }
     }
 }
 
