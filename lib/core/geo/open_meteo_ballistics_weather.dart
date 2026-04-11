@@ -15,6 +15,23 @@ class OpenMeteoCurrentWeather {
   final double pressureHpa;
 }
 
+/// Ağ yokken test için: Open-Meteo `v1/forecast` JSON gövdesinden [current] alanını okur.
+OpenMeteoCurrentWeather? parseOpenMeteoCurrentFromForecastJson(
+  Map<String, dynamic> map,
+) {
+  final cur = map['current'] as Map<String, dynamic>?;
+  if (cur == null) return null;
+  final t = (cur['temperature_2m'] as num?)?.toDouble();
+  final rh = (cur['relative_humidity_2m'] as num?)?.toDouble();
+  final p = (cur['surface_pressure'] as num?)?.toDouble();
+  if (t == null || rh == null || p == null) return null;
+  return OpenMeteoCurrentWeather(
+    temperatureC: t,
+    relativeHumidityPercent: rh,
+    pressureHpa: p,
+  );
+}
+
 /// [latitudeDeg] / [longitudeDeg] WGS84.
 Future<OpenMeteoCurrentWeather?> fetchOpenMeteoCurrent({
   required double latitudeDeg,
@@ -29,15 +46,5 @@ Future<OpenMeteoCurrentWeather?> fetchOpenMeteoCurrent({
   final res = await http.get(uri).timeout(const Duration(seconds: 12));
   if (res.statusCode < 200 || res.statusCode >= 300) return null;
   final map = jsonDecode(res.body) as Map<String, dynamic>;
-  final cur = map['current'] as Map<String, dynamic>?;
-  if (cur == null) return null;
-  final t = (cur['temperature_2m'] as num?)?.toDouble();
-  final rh = (cur['relative_humidity_2m'] as num?)?.toDouble();
-  final p = (cur['surface_pressure'] as num?)?.toDouble();
-  if (t == null || rh == null || p == null) return null;
-  return OpenMeteoCurrentWeather(
-    temperatureC: t,
-    relativeHumidityPercent: rh,
-    pressureHpa: p,
-  );
+  return parseOpenMeteoCurrentFromForecastJson(map);
 }
