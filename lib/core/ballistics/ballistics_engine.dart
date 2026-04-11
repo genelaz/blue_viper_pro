@@ -171,6 +171,44 @@ class BallisticsSolveInput {
     );
   }
 
+  BallisticsSolveInput withTargetCrossTrackMps(double targetCrossTrackMps) {
+    return BallisticsSolveInput(
+      distanceMeters: distanceMeters,
+      muzzleVelocityMps: muzzleVelocityMps,
+      bcKind: bcKind,
+      ballisticCoefficient: ballisticCoefficient,
+      temperatureC: temperatureC,
+      pressureHpa: pressureHpa,
+      relativeHumidityPercent: relativeHumidityPercent,
+      densityAltitudeMeters: densityAltitudeMeters,
+      targetElevationDeltaMeters: targetElevationDeltaMeters,
+      slopeAngleDegrees: slopeAngleDegrees,
+      sightHeightMeters: sightHeightMeters,
+      zeroRangeMeters: zeroRangeMeters,
+      crossWindMps: crossWindMps,
+      enableCoriolis: enableCoriolis,
+      latitudeDegrees: latitudeDegrees,
+      azimuthFromNorthDegrees: azimuthFromNorthDegrees,
+      enableSpinDrift: enableSpinDrift,
+      riflingTwistSign: riflingTwistSign,
+      bulletMassGrains: bulletMassGrains,
+      bulletCaliberInches: bulletCaliberInches,
+      twistInchesPerTurn: twistInchesPerTurn,
+      enableAerodynamicJump: enableAerodynamicJump,
+      clickUnit: clickUnit,
+      clickValue: clickValue,
+      powderTempVelocityPairs: powderTempVelocityPairs,
+      powderTemperatureC: powderTemperatureC,
+      bcMachSegments: bcMachSegments,
+      customDragMachNodes: customDragMachNodes,
+      customDragI: customDragI,
+      targetCrossTrackMps: targetCrossTrackMps,
+      angularMilConvention: angularMilConvention,
+      moaDisplayConvention: moaDisplayConvention,
+      invertCrossWindSign: invertCrossWindSign,
+    );
+  }
+
   /// [this] balistik profili (Vo, BC, nişan/sıfır, barut eğrisi, spin verileri) korur;
   /// menzil, hedef geometrisi, atmosfer, rüzgâr ve Coriolis/azimut gibi atış koşullarını [shot]tan alır.
   BallisticsSolveInput withShotConditionsFrom(BallisticsSolveInput shot) {
@@ -247,6 +285,15 @@ class BallisticsSolveOutput {
   /// Öncü dahil toplam yanal sapma, m.
   final double combinedLateralDeltaMeters;
 
+  /// Coriolis / spin / aero jump bileşenleri (çözüm çizgisinde mil öncesi).
+  final SecondaryCorrections secondaryCorrections;
+
+  /// Çözüm sıcaklığındaki ses hızı (m/s).
+  final double speedOfSoundMps;
+
+  /// Yörünge boyunca (entegrasyon çerçevesinde) maksimum dikey konum, m.
+  final double apexHeightAlongPathM;
+
   const BallisticsSolveOutput({
     required this.dropMil,
     required this.dropMoa,
@@ -269,6 +316,9 @@ class BallisticsSolveOutput {
     required this.windLateralDeltaMeters,
     required this.leadLateralDeltaMeters,
     required this.combinedLateralDeltaMeters,
+    required this.secondaryCorrections,
+    required this.speedOfSoundMps,
+    required this.apexHeightAlongPathM,
   });
 }
 
@@ -349,6 +399,7 @@ class BallisticsEngine {
     double zAt = 0;
     double tAt = 0;
     double vmAt = v0;
+    var apexY = s.y;
 
     for (var step = 0; step < maxSteps && !crossed; step++) {
       prevX = s.x;
@@ -367,6 +418,7 @@ class BallisticsEngine {
         g: g,
         windCrossMps: windCross,
       );
+      if (s.y > apexY) apexY = s.y;
       if (s.x >= d && prevX < d) {
         final f = (d - prevX) / (s.x - prevX);
         yAt = prevY + f * (s.y - prevY);
@@ -402,7 +454,7 @@ class BallisticsEngine {
       azimuthFromNorthDeg: i.azimuthFromNorthDegrees,
       rangeM: d,
       tofS: tAt,
-      avgVelocityMps: avgV.clamp(200.0, 2000.0),
+      avgVelocityMps: avgV.clamp(100.0, 2000.0),
       enableSpinDrift: i.enableSpinDrift,
       twistDirection: i.riflingTwistSign,
       bulletMassGrains: i.bulletMassGrains,
@@ -410,6 +462,9 @@ class BallisticsEngine {
       twistInchesPerTurn: i.twistInchesPerTurn,
       enableAeroJump: i.enableAerodynamicJump,
       crossWindMps: windCross,
+      temperatureC: i.temperatureC,
+      pressureHpa: i.pressureHpa,
+      relativeHumidityPercent: i.relativeHumidityPercent,
     );
 
     final yTot = yAt + sec.coriolisVerticalM + sec.aeroJumpVerticalM;
@@ -501,6 +556,9 @@ class BallisticsEngine {
       windLateralDeltaMeters: windDeltaM,
       leadLateralDeltaMeters: leadDeltaM,
       combinedLateralDeltaMeters: latCombinedDeltaM,
+      secondaryCorrections: sec,
+      speedOfSoundMps: sound,
+      apexHeightAlongPathM: apexY,
     );
   }
 

@@ -55,6 +55,22 @@ class WeaponProfile {
   /// Atış azimutu kuzeyden °; Coriolis ve met rüzgârı ile ortak.
   final double? azimuthFromNorthDegrees;
 
+  /// Serbest metin notu (StreLok «Not»).
+  final String? userNotes;
+
+  /// Çoklu sıfır / ince ayar: dikey ve yatay ek tık (çözüm gösterimine eklenir).
+  final double? zeroElevCompensationClicks;
+  final double? zeroWindCompensationClicks;
+
+  /// Sıfırlama atışındaki ortam (bilgi; motor doğrudan kullanmaz).
+  final double? zeroAtmosphereTempC;
+  final double? zeroAtmospherePressureHpa;
+  final double? zeroAtmosphereRhPercent;
+  final double? zeroPowderTempC;
+
+  /// Çekirdek uzunluğu (inç) — gösterim / ileri SF modelleri için.
+  final double? bulletLengthInches;
+
   const WeaponProfile({
     this.id = '',
     required this.name,
@@ -81,6 +97,14 @@ class WeaponProfile {
     this.latitudeDegrees,
     this.enableAerodynamicJump = false,
     this.azimuthFromNorthDegrees,
+    this.userNotes,
+    this.zeroElevCompensationClicks,
+    this.zeroWindCompensationClicks,
+    this.zeroAtmosphereTempC,
+    this.zeroAtmospherePressureHpa,
+    this.zeroAtmosphereRhPercent,
+    this.zeroPowderTempC,
+    this.bulletLengthInches,
   });
 
   /// Forma / haritada gösterilecek BC ([bcKind]’e göre).
@@ -115,6 +139,14 @@ class WeaponProfile {
         if (latitudeDegrees != null) 'latitudeDegrees': latitudeDegrees,
         'enableAerodynamicJump': enableAerodynamicJump,
         if (azimuthFromNorthDegrees != null) 'azimuthFromNorthDegrees': azimuthFromNorthDegrees,
+        if (userNotes != null && userNotes!.trim().isNotEmpty) 'userNotes': userNotes,
+        if (zeroElevCompensationClicks != null) 'zeroElevCompensationClicks': zeroElevCompensationClicks,
+        if (zeroWindCompensationClicks != null) 'zeroWindCompensationClicks': zeroWindCompensationClicks,
+        if (zeroAtmosphereTempC != null) 'zeroAtmosphereTempC': zeroAtmosphereTempC,
+        if (zeroAtmospherePressureHpa != null) 'zeroAtmospherePressureHpa': zeroAtmospherePressureHpa,
+        if (zeroAtmosphereRhPercent != null) 'zeroAtmosphereRhPercent': zeroAtmosphereRhPercent,
+        if (zeroPowderTempC != null) 'zeroPowderTempC': zeroPowderTempC,
+        if (bulletLengthInches != null) 'bulletLengthInches': bulletLengthInches,
       };
 
   static WeaponProfile? fromJson(Map<String, dynamic>? map) {
@@ -157,6 +189,14 @@ class WeaponProfile {
     final lat = (map['latitudeDegrees'] as num?)?.toDouble();
     final eaj = map['enableAerodynamicJump'];
     final azi = (map['azimuthFromNorthDegrees'] as num?)?.toDouble();
+    final un = (map['userNotes'] as String?)?.trim();
+    final zec = (map['zeroElevCompensationClicks'] as num?)?.toDouble();
+    final zwc = (map['zeroWindCompensationClicks'] as num?)?.toDouble();
+    final zt = (map['zeroAtmosphereTempC'] as num?)?.toDouble();
+    final zp = (map['zeroAtmospherePressureHpa'] as num?)?.toDouble();
+    final zrh = (map['zeroAtmosphereRhPercent'] as num?)?.toDouble();
+    final zpt = (map['zeroPowderTempC'] as num?)?.toDouble();
+    final bli = (map['bulletLengthInches'] as num?)?.toDouble();
     return WeaponProfile(
       id: id,
       name: name,
@@ -183,6 +223,14 @@ class WeaponProfile {
       latitudeDegrees: lat,
       enableAerodynamicJump: eaj is bool ? eaj : false,
       azimuthFromNorthDegrees: azi,
+      userNotes: (un != null && un.isNotEmpty) ? un : null,
+      zeroElevCompensationClicks: zec,
+      zeroWindCompensationClicks: zwc,
+      zeroAtmosphereTempC: zt,
+      zeroAtmospherePressureHpa: zp,
+      zeroAtmosphereRhPercent: zrh,
+      zeroPowderTempC: zpt,
+      bulletLengthInches: bli,
     );
   }
 
@@ -216,6 +264,15 @@ class WeaponProfile {
     double? latitudeDegrees,
     bool? enableAerodynamicJump,
     double? azimuthFromNorthDegrees,
+    String? userNotes,
+    bool clearUserNotes = false,
+    double? zeroElevCompensationClicks,
+    double? zeroWindCompensationClicks,
+    double? zeroAtmosphereTempC,
+    double? zeroAtmospherePressureHpa,
+    double? zeroAtmosphereRhPercent,
+    double? zeroPowderTempC,
+    double? bulletLengthInches,
   }) {
     return WeaponProfile(
       id: id ?? this.id,
@@ -245,6 +302,14 @@ class WeaponProfile {
       latitudeDegrees: latitudeDegrees ?? this.latitudeDegrees,
       enableAerodynamicJump: enableAerodynamicJump ?? this.enableAerodynamicJump,
       azimuthFromNorthDegrees: azimuthFromNorthDegrees ?? this.azimuthFromNorthDegrees,
+      userNotes: clearUserNotes ? null : (userNotes ?? this.userNotes),
+      zeroElevCompensationClicks: zeroElevCompensationClicks ?? this.zeroElevCompensationClicks,
+      zeroWindCompensationClicks: zeroWindCompensationClicks ?? this.zeroWindCompensationClicks,
+      zeroAtmosphereTempC: zeroAtmosphereTempC ?? this.zeroAtmosphereTempC,
+      zeroAtmospherePressureHpa: zeroAtmospherePressureHpa ?? this.zeroAtmospherePressureHpa,
+      zeroAtmosphereRhPercent: zeroAtmosphereRhPercent ?? this.zeroAtmosphereRhPercent,
+      zeroPowderTempC: zeroPowderTempC ?? this.zeroPowderTempC,
+      bulletLengthInches: bulletLengthInches ?? this.bulletLengthInches,
     );
   }
 }
@@ -357,6 +422,21 @@ class WeaponProfileBookStore {
     if (profile.id.isEmpty) return;
     await WeaponProfileStore.save(profile);
     await _persistBook();
+  }
+
+  /// StreLok «Kopyala»: yeni id ile aynı alanları kopyalar ve aktif eder.
+  static Future<WeaponProfile> duplicate(WeaponProfile source) async {
+    final newId = 'wp_${DateTime.now().millisecondsSinceEpoch}';
+    final baseName = source.name.trim().isEmpty ? 'Profil' : source.name.trim();
+    final copy = source.copyWith(
+      id: newId,
+      name: 'Kopya — $baseName',
+    );
+    final list = List<WeaponProfile>.from(entries.value)..add(copy);
+    entries.value = list;
+    await WeaponProfileStore.save(copy);
+    await _persistBook();
+    return copy;
   }
 }
 

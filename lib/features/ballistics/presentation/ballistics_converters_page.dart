@@ -13,6 +13,9 @@ enum BallisticsConverterAction {
   zeroWizard,
   captureCompareRef,
   runCompare,
+  extraData,
+  unitConverters,
+  bleDevicePrefs,
 }
 
 class BallisticsConvertersPage extends StatelessWidget {
@@ -137,6 +140,22 @@ class BallisticsConvertersPage extends StatelessWidget {
             'Sıfır / nişan sihirbazı (sapma → tık)',
             BallisticsConverterAction.zeroWizard,
             subtitle: 'Kağıt veya retikülde ölçülen sapmadan tık düzeltmesi.',
+          ),
+          const StreLockSectionHeader('Veri ve donanım'),
+          tile(
+            'Ek veriler (detay)',
+            BallisticsConverterAction.extraData,
+            subtitle: 'Ses hızı, yörünge tepesi, ikincil düzeltmeler, tık/cm.',
+          ),
+          tile(
+            'Birim araçları',
+            BallisticsConverterAction.unitConverters,
+            subtitle: 'Mesafe, mil/MOA/cm, ağırlık, basınç, tork, BC ipucu.',
+          ),
+          tile(
+            'Bluetooth cihaz kayıtları',
+            BallisticsConverterAction.bleDevicePrefs,
+            subtitle: 'Hava / rüzgar cihazı türü ve kayıtlı kimlik.',
           ),
           const StreLockSectionHeader('Karşılaştırma'),
           tile(

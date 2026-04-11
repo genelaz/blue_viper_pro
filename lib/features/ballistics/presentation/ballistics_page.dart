@@ -1,12 +1,18 @@
-import 'dart:async' show unawaited;
+import 'dart:async' show StreamSubscription, Timer, unawaited;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/ballistics/ballistic_compare_ref_store.dart';
+import 'package:environment_sensors/environment_sensors.dart';
+import 'package:geolocator/geolocator.dart';
+
+import '../../../core/ballistics/ballistics_corrections.dart';
 import '../../../core/ballistics/ballistics_engine.dart';
 import '../../../core/ballistics/ballistics_export.dart';
+import '../../../core/ballistics/ballistics_range_prefs.dart';
+import '../../../core/ballistics/ballistics_range_ui.dart';
 import '../../../core/ballistics/ballistics_output_convention.dart';
 import '../../../core/ballistics/click_units.dart';
 import '../../../core/ballistics/bc_g7_estimate.dart';
@@ -23,6 +29,7 @@ import '../../../core/catalog/catalog_strelock_extra.dart';
 import '../../../core/catalog/catalog_loader.dart';
 import '../../../core/catalog/user_catalog_store.dart';
 import '../../../core/catalog/weapon_ballistic_presets.dart';
+import '../../../core/geo/open_meteo_ballistics_weather.dart';
 import '../../../core/geo/saved_targets_store.dart';
 import '../../../core/geo/target_solution_store.dart';
 import '../../../core/profile/shot_scene_preset.dart';
@@ -31,7 +38,10 @@ import '../../../core/reticles/reticle_catalog_loader.dart';
 import '../../../core/reticles/reticle_definition.dart';
 import '../../../core/reticles/reticle_user_prefs.dart';
 import '../../../core/reticles/scope_reticle_map.dart';
+import '../../../features/bluetooth/presentation/ble_hub_page.dart';
 import 'ballistics_converters_page.dart';
+import 'ballistics_extra_data_page.dart';
+import 'ballistics_unit_converters_page.dart';
 import 'manual_scope_entry_page.dart';
 import 'manual_weapon_entry_page.dart';
 import 'moving_target_page.dart';
@@ -43,11 +53,11 @@ import 'trajectory_validation_page.dart';
 
 enum _TempUnit { c, f }
 
-enum _PressureUnit { hpa, inHg, mmHg }
+enum _PressureUnit { hpa, inHg, mmHg, psi }
 
 enum _LengthUnit { m, ft }
 
-enum _SlopeUnit { deg, percent }
+enum _SlopeUnit { deg, percent, cos }
 
 class BallisticsPage extends StatefulWidget {
   const BallisticsPage({super.key});
@@ -59,7 +69,9 @@ class BallisticsPage extends StatefulWidget {
 class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
 
-  final _distanceCtrl = TextEditingController(text: '500');
+  final _distanceCtrl = TextEditingController(
+    text: '${BallisticsRangeUi.defaultPrimaryDistanceM}',
+  );
   final _weaponNameCtrl = TextEditingController(text: 'Rifle-1');
   final _mvCtrl = TextEditingController(text: '800');
   final _bcCtrl = TextEditingController(text: '0.45');
@@ -87,13 +99,31 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
   final _scopeMagCtrl = TextEditingController(text: '10');
   final _refMagCtrl = TextEditingController(text: '10');
   final _barrelInchesCtrl = TextEditingController();
-  final _tableStartCtrl = TextEditingController(text: '100');
-  final _tableEndCtrl = TextEditingController(text: '800');
-  final _tableStepCtrl = TextEditingController(text: '50');
+  final _tableStartCtrl = TextEditingController(
+    text: '${BallisticsRangeUi.defaultTableStartM}',
+  );
+  final _tableEndCtrl = TextEditingController(
+    text: '${BallisticsRangeUi.defaultTableEndM}',
+  );
+  final _tableStepCtrl = TextEditingController(
+    text: '${BallisticsRangeUi.defaultTableStepM}',
+  );
+  /// Son kullanılan toplu menzil CSV (diyalog varsayılanı); [BallisticsRangePrefs] ile saklanır.
+  String _lastBatchRangesCsv = BallisticsRangeUi.defaultBatchRangesCsv;
+  Timer? _ballisticsRangePrefsSaveTimer;
+  bool _ballisticsRangePrefsHydrated = false;
   final _reticleSearchCtrl = TextEditingController();
   final _bcSegCtrl = TextEditingController();
   final _customDragCtrl = TextEditingController();
   final _targetCrossCtrl = TextEditingController(text: '0');
+  final _weaponNotesCtrl = TextEditingController();
+  final _bulletLenInCtrl = TextEditingController();
+  final _zeroElevCompCtrl = TextEditingController();
+  final _zeroWindCompCtrl = TextEditingController();
+  final _zeroAtmoTempCtrl = TextEditingController();
+  final _zeroAtmoPresCtrl = TextEditingController();
+  final _zeroAtmoRhCtrl = TextEditingController();
+  final _zeroPowderTCtrl = TextEditingController();
 
   final _clickValueCtrl = TextEditingController(text: '0.1');
 
@@ -113,6 +143,10 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
   AngularMilConvention _angularMilConvention = AngularMilConvention.linear;
   MoaDisplayConvention _moaDisplayConvention = MoaDisplayConvention.legacyFromMil;
   bool _invertCrossWindSign = false;
+  bool _energyFtLbf = false;
+  bool _useInternalBarometer = false;
+  StreamSubscription<double>? _barometerSub;
+  final EnvironmentSensors _environmentSensors = EnvironmentSensors();
 
   WeaponType? _selectedWeapon;
   ScopeType? _selectedScope;
@@ -180,12 +214,57 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
     SavedTargetsStore.load().then((list) {
       if (mounted) setState(() => _savedTargets = list);
     });
+    _distanceCtrl.addListener(_onBallisticsRangePrefsFieldChanged);
+    _tableStartCtrl.addListener(_onBallisticsRangePrefsFieldChanged);
+    _tableEndCtrl.addListener(_onBallisticsRangePrefsFieldChanged);
+    _tableStepCtrl.addListener(_onBallisticsRangePrefsFieldChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _applyPersistedProfileToForm();
       _applyBleEnvToForm();
       unawaited(_loadPersistedCompareRef());
       unawaited(_loadBallisticsDisplayPrefs());
+      unawaited(_loadBallisticsRangePrefs());
     });
+  }
+
+  void _onBallisticsRangePrefsFieldChanged() {
+    if (!_ballisticsRangePrefsHydrated) return;
+    _ballisticsRangePrefsSaveTimer?.cancel();
+    _ballisticsRangePrefsSaveTimer = Timer(const Duration(milliseconds: 700), () {
+      _ballisticsRangePrefsSaveTimer = null;
+      unawaited(
+        BallisticsRangePrefs.save(
+          primaryText: _distanceCtrl.text,
+          tableStartText: _tableStartCtrl.text,
+          tableEndText: _tableEndCtrl.text,
+          tableStepText: _tableStepCtrl.text,
+          batchCsv: _lastBatchRangesCsv,
+        ),
+      );
+    });
+  }
+
+  Future<void> _loadBallisticsRangePrefs() async {
+    final data = await BallisticsRangePrefs.load();
+    if (!mounted) return;
+    setState(() {
+      _distanceCtrl.text = BallisticsRangePrefs.formatPrimaryField(data.primaryDistanceM);
+      _tableStartCtrl.text = '${data.tableStartM}';
+      _tableEndCtrl.text = '${data.tableEndM}';
+      _tableStepCtrl.text = '${data.tableStepM}';
+      _lastBatchRangesCsv = data.lastBatchRangesCsv;
+    });
+    _ballisticsRangePrefsHydrated = true;
+  }
+
+  Future<void> _flushBallisticsRangePrefs() async {
+    await BallisticsRangePrefs.save(
+      primaryText: _distanceCtrl.text,
+      tableStartText: _tableStartCtrl.text,
+      tableEndText: _tableEndCtrl.text,
+      tableStepText: _tableStepCtrl.text,
+      batchCsv: _lastBatchRangesCsv,
+    );
   }
 
   Future<void> _loadBallisticsDisplayPrefs() async {
@@ -206,11 +285,18 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
       } catch (_) {}
     }
     final inv = p.getBool('ballistics_invert_cross_wind_v1') ?? false;
+    final eft = p.getBool('ballistics_energy_ft_lbf_v1') ?? false;
+    final baro = p.getBool('ballistics_internal_barometer_v1') ?? false;
     setState(() {
       _angularMilConvention = am;
       _moaDisplayConvention = mo;
       _invertCrossWindSign = inv;
+      _energyFtLbf = eft;
+      _useInternalBarometer = baro;
     });
+    if (baro) {
+      unawaited(_setInternalBarometer(true));
+    }
   }
 
   Future<void> _persistBallisticsDisplayPrefs() async {
@@ -218,12 +304,214 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
     await p.setString('ballistics_angular_mil_v1', _angularMilConvention.name);
     await p.setString('ballistics_moa_display_v1', _moaDisplayConvention.name);
     await p.setBool('ballistics_invert_cross_wind_v1', _invertCrossWindSign);
+    await p.setBool('ballistics_energy_ft_lbf_v1', _energyFtLbf);
+    await p.setBool('ballistics_internal_barometer_v1', _useInternalBarometer);
+  }
+
+  Future<void> _setInternalBarometer(bool on) async {
+    await _barometerSub?.cancel();
+    _barometerSub = null;
+    if (!on) {
+      if (mounted) setState(() => _useInternalBarometer = false);
+      await _persistBallisticsDisplayPrefs();
+      return;
+    }
+    final ok = await _environmentSensors.getSensorAvailable(SensorType.Pressure);
+    if (!ok) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('ballistics_internal_barometer_v1', false);
+      if (!mounted) return;
+      setState(() => _useInternalBarometer = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bu cihazda basınç sensörü yok veya kullanılamıyor.')),
+      );
+      return;
+    }
+    if (mounted) setState(() => _useInternalBarometer = true);
+    await _persistBallisticsDisplayPrefs();
+    _pressureUnit = _PressureUnit.hpa;
+    _barometerSub = _environmentSensors.pressure.listen((hpa) {
+      if (!mounted) return;
+      setState(() {
+        _pressureCtrl.text = hpa.toStringAsFixed(1);
+      });
+    });
+  }
+
+  Future<void> _applyMeteoToForm() async {
+    LocationPermission perm = await Geolocator.checkPermission();
+    if (perm == LocationPermission.denied) {
+      perm = await Geolocator.requestPermission();
+    }
+    if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Konum izni gerekli (METEO).')),
+      );
+      return;
+    }
+    final pos = await Geolocator.getCurrentPosition();
+    final wx = await fetchOpenMeteoCurrent(
+      latitudeDeg: pos.latitude,
+      longitudeDeg: pos.longitude,
+    );
+    if (!mounted) return;
+    if (wx == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Open-Meteo yanıtı alınamadı.')),
+      );
+      return;
+    }
+    setState(() {
+      _tempUnit = _TempUnit.c;
+      _tempCtrl.text = wx.temperatureC.toStringAsFixed(1);
+      _pressureUnit = _PressureUnit.hpa;
+      _pressureCtrl.text = wx.pressureHpa.toStringAsFixed(1);
+      _rhCtrl.text = wx.relativeHumidityPercent.toStringAsFixed(0);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('METEO: sıcaklık / basınç / nem forma yazıldı.')),
+    );
   }
 
   String _formatCompareRefSummary(BallisticsSolveInput snap) {
     final bcLabel = snap.bcKind == BcKind.g7 ? 'G7' : 'G1';
     return '$bcLabel ${snap.ballisticCoefficient.toStringAsFixed(3)} · '
         '${snap.muzzleVelocityMps.toStringAsFixed(0)} m/s';
+  }
+
+  String _serializeBcMachSegments(List<BcMachSegment> segs) {
+    if (segs.isEmpty) return '';
+    final copy = [...segs]..sort((a, b) => b.machMin.compareTo(a.machMin));
+    return copy.map((e) => '${e.machMin},${e.bc}').join('\n');
+  }
+
+  String _serializeCustomDragMachINodes(List<double> machs, List<double> iNodes) {
+    if (machs.isEmpty || machs.length != iNodes.length) return '';
+    final b = StringBuffer();
+    for (var k = 0; k < machs.length; k++) {
+      if (k > 0) b.writeln();
+      b.write('${machs[k]},${iNodes[k]}');
+    }
+    return b.toString();
+  }
+
+  double _cToTempDisplay(double c) =>
+      _tempUnit == _TempUnit.c ? c : c * 9.0 / 5.0 + 32.0;
+
+  double _hpaToPressureDisplay(double hpa) {
+    switch (_pressureUnit) {
+      case _PressureUnit.hpa:
+        return hpa;
+      case _PressureUnit.inHg:
+        return hpa / 33.8638866667;
+      case _PressureUnit.mmHg:
+        return hpa / 1.33322;
+      case _PressureUnit.psi:
+        return hpa / 68.9475729328;
+    }
+  }
+
+  double _metersToLengthDisplay(double m) =>
+      _heightUnit == _LengthUnit.m ? m : m / 0.3048;
+
+  double _degreesToSlopeDisplay(double deg) {
+    switch (_slopeUnit) {
+      case _SlopeUnit.deg:
+        return deg;
+      case _SlopeUnit.percent:
+        return math.tan(deg * math.pi / 180.0) * 100.0;
+      case _SlopeUnit.cos:
+        return math.cos(deg * math.pi / 180.0);
+    }
+  }
+
+  /// Kayıtlı karşılaştırma referansındaki çözüm girdilerini forma yazar; katalog silah/dürbün/mühimmat seçimi değişmez.
+  void _applySolveInputCoreToForm(BallisticsSolveInput i) {
+    _distanceCtrl.text = i.distanceMeters.toStringAsFixed(0);
+    _mvCtrl.text = i.muzzleVelocityMps.toStringAsFixed(0);
+    _bcKind = i.bcKind;
+    _bcCtrl.text = i.ballisticCoefficient.toStringAsFixed(3);
+    _tempCtrl.text = _cToTempDisplay(i.temperatureC).toStringAsFixed(1);
+    _pressureCtrl.text = _hpaToPressureDisplay(i.pressureHpa).toStringAsFixed(
+      _pressureUnit == _PressureUnit.hpa ? 0 : 2,
+    );
+    _rhCtrl.text = i.relativeHumidityPercent.toStringAsFixed(0);
+    final daM = i.densityAltitudeMeters;
+    if (daM == null || daM.abs() < 1e-6) {
+      _daCtrl.text = '';
+    } else {
+      _daCtrl.text = _metersToLengthDisplay(daM).toStringAsFixed(1);
+    }
+    _elevDeltaCtrl.text = _metersToLengthDisplay(i.targetElevationDeltaMeters).toStringAsFixed(1);
+    _slopeCtrl.text = _degreesToSlopeDisplay(i.slopeAngleDegrees).toStringAsFixed(2);
+    _sightHcmCtrl.text = (i.sightHeightMeters * 100).toStringAsFixed(1);
+    _zeroRangeCtrl.text = i.zeroRangeMeters.toStringAsFixed(0);
+    _useMetWindVector = false;
+    _crossWindCtrl.text = i.crossWindMps.toStringAsFixed(2);
+    _coriolisOn = i.enableCoriolis;
+    _latCtrl.text = i.latitudeDegrees.toStringAsFixed(1);
+    _shotAzCtrl.text = i.azimuthFromNorthDegrees.toStringAsFixed(1);
+    _spinOn = i.enableSpinDrift;
+    _twistRightHanded = i.riflingTwistSign >= 0;
+    if (i.bulletMassGrains != null) {
+      _grainCtrl.text = i.bulletMassGrains!.toStringAsFixed(0);
+    }
+    if (i.bulletCaliberInches != null) {
+      _calInCtrl.text = i.bulletCaliberInches!.toString();
+    }
+    if (i.twistInchesPerTurn != null) {
+      _twistInCtrl.text = i.twistInchesPerTurn!.toString();
+    }
+    _jumpOn = i.enableAerodynamicJump;
+    _clickUnit = i.clickUnit;
+    _clickValueCtrl.text = i.clickValue.toString();
+    final pairs = i.powderTempVelocityPairs;
+    if (pairs.length >= 2) {
+      _powderT1Ctrl.text = pairs[0].tempC.toStringAsFixed(1);
+      _powderV1Ctrl.text = pairs[0].velocityMps.toStringAsFixed(0);
+      _powderT2Ctrl.text = pairs[1].tempC.toStringAsFixed(1);
+      _powderV2Ctrl.text = pairs[1].velocityMps.toStringAsFixed(0);
+    } else {
+      _powderT1Ctrl.clear();
+      _powderV1Ctrl.clear();
+      _powderT2Ctrl.clear();
+      _powderV2Ctrl.clear();
+    }
+    final ptc = i.powderTemperatureC;
+    _powderCurTCtrl.text = ptc == null ? '' : ptc.toStringAsFixed(1);
+    final segs = i.bcMachSegments;
+    _bcSegCtrl.text = segs == null || segs.isEmpty ? '' : _serializeBcMachSegments(segs);
+    final cm = i.customDragMachNodes;
+    final ci = i.customDragI;
+    _customDragCtrl.text =
+        cm != null && ci != null && cm.isNotEmpty ? _serializeCustomDragMachINodes(cm, ci) : '';
+    _targetCrossCtrl.text = i.targetCrossTrackMps.toStringAsFixed(2);
+    _angularMilConvention = i.angularMilConvention;
+    _moaDisplayConvention = i.moaDisplayConvention;
+    _invertCrossWindSign = i.invertCrossWindSign;
+  }
+
+  Future<void> _applyCompareRefToForm() async {
+    final ref = _profileCompareRef;
+    if (ref == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Önce «Referans» ile mevcut çözümü kaydedin.')),
+      );
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _applySolveInputCoreToForm(ref));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Referans girdileri forma yazıldı. Rüzgâr: çözüme giren çapraz m/s (met vektör kapalı). '
+          'Silah / dürbün / mühimmat seçimi aynı kaldı.',
+        ),
+      ),
+    );
   }
 
   Future<void> _loadPersistedCompareRef() async {
@@ -356,6 +644,42 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
     _chronoVoLocked = p.chronoMuzzleVelocityLocked;
     if (p.preferredBarrelInches != null && p.preferredBarrelInches! > 0) {
       _barrelInchesCtrl.text = p.preferredBarrelInches!.toStringAsFixed(1);
+    }
+    _weaponNotesCtrl.text = p.userNotes ?? '';
+    if (p.bulletLengthInches != null && p.bulletLengthInches! > 0) {
+      _bulletLenInCtrl.text = p.bulletLengthInches!.toStringAsFixed(3);
+    } else {
+      _bulletLenInCtrl.clear();
+    }
+    if (p.zeroElevCompensationClicks != null) {
+      _zeroElevCompCtrl.text = p.zeroElevCompensationClicks!.toStringAsFixed(2);
+    } else {
+      _zeroElevCompCtrl.clear();
+    }
+    if (p.zeroWindCompensationClicks != null) {
+      _zeroWindCompCtrl.text = p.zeroWindCompensationClicks!.toStringAsFixed(2);
+    } else {
+      _zeroWindCompCtrl.clear();
+    }
+    if (p.zeroAtmosphereTempC != null) {
+      _zeroAtmoTempCtrl.text = p.zeroAtmosphereTempC!.toStringAsFixed(1);
+    } else {
+      _zeroAtmoTempCtrl.clear();
+    }
+    if (p.zeroAtmospherePressureHpa != null) {
+      _zeroAtmoPresCtrl.text = p.zeroAtmospherePressureHpa!.toStringAsFixed(1);
+    } else {
+      _zeroAtmoPresCtrl.clear();
+    }
+    if (p.zeroAtmosphereRhPercent != null) {
+      _zeroAtmoRhCtrl.text = p.zeroAtmosphereRhPercent!.toStringAsFixed(0);
+    } else {
+      _zeroAtmoRhCtrl.clear();
+    }
+    if (p.zeroPowderTempC != null) {
+      _zeroPowderTCtrl.text = p.zeroPowderTempC!.toStringAsFixed(1);
+    } else {
+      _zeroPowderTCtrl.clear();
     }
 
     _selectedScope = null;
@@ -535,6 +859,20 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
     return 'Dürbün: $scope · Mühimmat: $ammo';
   }
 
+  String? _millerSfLineForBook(WeaponProfile e) {
+    final sf = millerStabilityFactorGreen(
+      bulletMassGrains: e.bulletMassGrains,
+      caliberInches: e.bulletCaliberInches,
+      twistInchesPerTurn: e.twistInchesPerTurn,
+      avgVelocityMps: e.muzzleVelocityMps,
+      temperatureC: 15,
+      pressureHpa: 1013,
+      relativeHumidityPercent: 0,
+    );
+    if (sf == null) return null;
+    return 'SF ≈ ${sf.toStringAsFixed(2)} (Miller, referans 15 °C)';
+  }
+
   /// Defter özet satırı — hatve / mermi kayıtlıysa gösterilir.
   String? _bookSpinSummaryLine(WeaponProfile e) {
     final has = e.enableSpinDrift ||
@@ -654,6 +992,13 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
 
   @override
   void dispose() {
+    _barometerSub?.cancel();
+    _ballisticsRangePrefsSaveTimer?.cancel();
+    _distanceCtrl.removeListener(_onBallisticsRangePrefsFieldChanged);
+    _tableStartCtrl.removeListener(_onBallisticsRangePrefsFieldChanged);
+    _tableEndCtrl.removeListener(_onBallisticsRangePrefsFieldChanged);
+    _tableStepCtrl.removeListener(_onBallisticsRangePrefsFieldChanged);
+    unawaited(_flushBallisticsRangePrefs());
     _tabController.dispose();
     BallisticsEnvBridge.pending.removeListener(_applyBleEnvToForm);
     WeaponProfileStore.current.removeListener(_onWeaponProfileChanged);
@@ -696,6 +1041,14 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
       _bcSegCtrl,
       _customDragCtrl,
       _targetCrossCtrl,
+      _weaponNotesCtrl,
+      _bulletLenInCtrl,
+      _zeroElevCompCtrl,
+      _zeroWindCompCtrl,
+      _zeroAtmoTempCtrl,
+      _zeroAtmoPresCtrl,
+      _zeroAtmoRhCtrl,
+      _zeroPowderTCtrl,
       _clickValueCtrl,
     ]) {
       c.dispose();
@@ -709,6 +1062,136 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
     _weapons.sort((x, y) => byName(x.name, y.name));
     _scopes.sort((x, y) => byName(x.name, y.name));
     _ammos.sort((x, y) => byName(x.name, y.name));
+  }
+
+  /// Katalog listeleri yenilendikten sonra [DropdownMenuItem.value] ile aynı nesne referansına döner;
+  /// aksi halde seçim eski listeden kalır ve açılır liste değiştirilemez.
+  void _rebindCatalogSelectionsToLoadedLists() {
+    final w = _selectedWeapon;
+    if (w != null) {
+      WeaponType? match;
+      for (final x in _weapons) {
+        if (x.id == w.id) {
+          match = x;
+          break;
+        }
+      }
+      _selectedWeapon = match;
+    }
+    final s = _selectedScope;
+    if (s != null) {
+      ScopeType? match;
+      for (final x in _scopes) {
+        if (x.id == s.id) {
+          match = x;
+          break;
+        }
+      }
+      _selectedScope = match;
+    }
+    final a = _selectedAmmo;
+    if (a != null) {
+      AmmoType? match;
+      for (final x in _ammos) {
+        if (x.id == a.id) {
+          match = x;
+          break;
+        }
+      }
+      _selectedAmmo = match;
+      if (match != null) {
+        final vid = _selectedAmmoVariantId;
+        if (vid != null && !match.variants.any((e) => e.id == vid)) {
+          _selectedAmmoVariantId = match.variants.isNotEmpty ? match.variants.first.id : null;
+        }
+        if ((_selectedAmmoVariantId == null || _selectedAmmoVariantId!.isEmpty) &&
+            match.variants.isNotEmpty) {
+          _selectedAmmoVariantId = match.variants.first.id;
+        }
+      } else {
+        _selectedAmmoVariantId = null;
+      }
+    }
+  }
+
+  Future<void> _showSavedWeaponProfilesSheet() async {
+    if (!mounted) return;
+    final theme = Theme.of(context);
+    final entries = List<WeaponProfile>.from(WeaponProfileBookStore.entries.value)
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) {
+        final maxH = MediaQuery.sizeOf(ctx).height * 0.65;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                  child: Text(
+                    'Kayıtlı silahlarım',
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                ),
+                if (entries.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                    child: Text(
+                      'Defterde kayıt yok. «Silah» sekmesinden katalog seçip «Profili kaydet» ile ekleyin.',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  )
+                else
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxHeight: maxH),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: entries.length,
+                      itemBuilder: (ctx2, i) {
+                        final p = entries[i];
+                        final curId = WeaponProfileStore.current.value?.id;
+                        final active = p.id.isNotEmpty && p.id == curId;
+                        return ListTile(
+                          leading: Icon(
+                            active ? Icons.check_circle : Icons.circle_outlined,
+                            color: active ? theme.colorScheme.primary : theme.colorScheme.outline,
+                          ),
+                          title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                          subtitle: Text(
+                            '${_bookEntryCatalogSubtitle(p)}\n${_bookScopeAmmoSummaryLine(p)}',
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            unawaited(_applyBookProfileEntry(p));
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      setState(() => _tabController.index = 1);
+                    },
+                    child: const Text('Katalogdan silah · dürbün · mühimmat seç (Silah sekmesi)'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _loadUserCatalog() async {
@@ -748,6 +1231,7 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
         _applyShotSceneFields(scene);
         _activeScenePresetId = scene.id;
       }
+      _rebindCatalogSelectionsToLoadedLists();
     });
   }
 
@@ -966,6 +1450,7 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
         _PressureUnit.hpa => 'hPa',
         _PressureUnit.inHg => 'inHg',
         _PressureUnit.mmHg => 'mmHg',
+        _PressureUnit.psi => 'psi',
       };
 
   String _kestrelTemperatureLine() {
@@ -997,17 +1482,27 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
         _PressureUnit.hpa => 'hpa',
         _PressureUnit.inHg => 'inHg',
         _PressureUnit.mmHg => 'mmHg',
+        _PressureUnit.psi => 'psi',
       };
   String _heightUnitKey(_LengthUnit u) => switch (u) { _LengthUnit.m => 'm', _LengthUnit.ft => 'ft' };
-  String _slopeUnitKey(_SlopeUnit u) => switch (u) { _SlopeUnit.deg => 'deg', _SlopeUnit.percent => 'percent' };
+  String _slopeUnitKey(_SlopeUnit u) => switch (u) {
+        _SlopeUnit.deg => 'deg',
+        _SlopeUnit.percent => 'percent',
+        _SlopeUnit.cos => 'cos',
+      };
   _TempUnit _tempUnitFromKey(String? s) => s == 'f' ? _TempUnit.f : _TempUnit.c;
   _PressureUnit _pressureUnitFromKey(String? s) => switch (s) {
         'inHg' => _PressureUnit.inHg,
         'mmHg' => _PressureUnit.mmHg,
+        'psi' => _PressureUnit.psi,
         _ => _PressureUnit.hpa,
       };
   _LengthUnit _heightUnitFromKey(String? s) => s == 'ft' ? _LengthUnit.ft : _LengthUnit.m;
-  _SlopeUnit _slopeUnitFromKey(String? s) => s == 'percent' ? _SlopeUnit.percent : _SlopeUnit.deg;
+  _SlopeUnit _slopeUnitFromKey(String? s) => switch (s) {
+        'percent' => _SlopeUnit.percent,
+        'cos' => _SlopeUnit.cos,
+        _ => _SlopeUnit.deg,
+      };
 
   double _tempToC(double v) => _tempUnit == _TempUnit.c ? v : (v - 32.0) * 5.0 / 9.0;
 
@@ -1019,13 +1514,24 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
         return v * 33.8638866667;
       case _PressureUnit.mmHg:
         return v * 1.33322;
+      case _PressureUnit.psi:
+        return v * 68.9475729328;
     }
   }
 
   double _lengthToMeters(double v) => _heightUnit == _LengthUnit.m ? v : v * 0.3048;
 
-  double _slopeToDegrees(double v) =>
-      _slopeUnit == _SlopeUnit.deg ? v : math.atan(v / 100.0) * 180.0 / math.pi;
+  double _slopeToDegrees(double v) {
+    switch (_slopeUnit) {
+      case _SlopeUnit.deg:
+        return v;
+      case _SlopeUnit.percent:
+        return math.atan(v / 100.0) * 180.0 / math.pi;
+      case _SlopeUnit.cos:
+        final c = v.clamp(-1.0, 1.0);
+        return math.acos(c) * 180.0 / math.pi;
+    }
+  }
 
   List<TempVelocityPair> _powderPairs() {
     final t1 = double.tryParse(_powderT1Ctrl.text.replaceAll(',', '.'));
@@ -1251,6 +1757,14 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
       latitudeDegrees: double.tryParse(_latCtrl.text.replaceAll(',', '.')),
       enableAerodynamicJump: _jumpOn,
       azimuthFromNorthDegrees: double.tryParse(_shotAzCtrl.text.replaceAll(',', '.')),
+      userNotes: _weaponNotesCtrl.text.trim().isEmpty ? null : _weaponNotesCtrl.text.trim(),
+      zeroElevCompensationClicks: double.tryParse(_zeroElevCompCtrl.text.replaceAll(',', '.')),
+      zeroWindCompensationClicks: double.tryParse(_zeroWindCompCtrl.text.replaceAll(',', '.')),
+      zeroAtmosphereTempC: double.tryParse(_zeroAtmoTempCtrl.text.replaceAll(',', '.')),
+      zeroAtmospherePressureHpa: double.tryParse(_zeroAtmoPresCtrl.text.replaceAll(',', '.')),
+      zeroAtmosphereRhPercent: double.tryParse(_zeroAtmoRhCtrl.text.replaceAll(',', '.')),
+      zeroPowderTempC: double.tryParse(_zeroPowderTCtrl.text.replaceAll(',', '.')),
+      bulletLengthInches: double.tryParse(_bulletLenInCtrl.text.replaceAll(',', '.')),
     );
     final saved = await WeaponProfileBookStore.upsertAndActivate(profile);
     if (!mounted) return;
@@ -1456,10 +1970,23 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
 
   Future<void> _rangeTableDialog() async {
     if (!_formKey.currentState!.validate()) return;
-    final start = int.tryParse(_tableStartCtrl.text) ?? 100;
-    final end = int.tryParse(_tableEndCtrl.text) ?? 800;
-    final step = int.tryParse(_tableStepCtrl.text) ?? 50;
+    final start = int.tryParse(_tableStartCtrl.text) ?? BallisticsRangeUi.defaultTableStartM;
+    final end = int.tryParse(_tableEndCtrl.text) ?? BallisticsRangeUi.fallbackTableEndM;
+    final step = int.tryParse(_tableStepCtrl.text) ?? BallisticsRangeUi.defaultTableStepM;
     if (end < start || step <= 0) return;
+    final rowCount = BallisticsRangeUi.rangeTableRowCount(start, end, step);
+    if (rowCount > BallisticsRangeUi.maxRangeTableRows) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Menzil tablosu çok uzun ($rowCount satır, üst sınır ${BallisticsRangeUi.maxRangeTableRows}). '
+            'Adımı büyütün veya bitiş menzilini düşürün.',
+          ),
+        ),
+      );
+      return;
+    }
     final rows = buildBallisticsRangeTable(
       template: _collectInput(),
       startMeters: start,
@@ -1479,10 +2006,15 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
   }
 
   Future<void> _openMovingTargetPage() async {
+    BallisticsSolveInput? baseline;
+    if (_formKey.currentState?.validate() == true) {
+      baseline = _collectInput();
+    }
     final applied = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         fullscreenDialog: true,
         builder: (ctx) => MovingTargetLeadPage(
+          baselineInput: baseline,
           onApplyCrossTrackMps: (v) {
             if (!mounted) return;
             setState(() => _targetCrossCtrl.text = v.toStringAsFixed(2));
@@ -1614,7 +2146,45 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
         await _captureProfileCompareRef();
       case BallisticsConverterAction.runCompare:
         await _compareProfilesDialog();
+      case BallisticsConverterAction.extraData:
+        await _openExtraDataPage();
+      case BallisticsConverterAction.unitConverters:
+        if (!mounted) return;
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(builder: (_) => const BallisticsUnitConvertersPage()),
+        );
+      case BallisticsConverterAction.bleDevicePrefs:
+        if (!mounted) return;
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(builder: (_) => const BleHubPage()),
+        );
     }
+  }
+
+  Future<void> _openExtraDataPage() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_result == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Önce «HESAPLA» ile çözüm üretin.')),
+      );
+      return;
+    }
+    final p = WeaponProfileStore.current.value;
+    final ze = p?.zeroElevCompensationClicks ?? 0;
+    final zw = p?.zeroWindCompensationClicks ?? 0;
+    if (!mounted) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => BallisticsExtraDataPage(
+          input: _collectInput(),
+          output: _result!,
+          zeroElevCompClicks: ze,
+          zeroWindCompClicks: zw,
+          showEnergyFtLbf: _energyFtLbf,
+        ),
+      ),
+    );
   }
 
   Future<void> _captureProfileCompareRef() async {
@@ -1838,7 +2408,7 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
   }
 
   Future<void> _batchRangeListDialog() async {
-    final ctrl = TextEditingController(text: '300,400,500,600,800');
+    final ctrl = TextEditingController(text: _lastBatchRangesCsv);
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1876,7 +2446,27 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
     ranges.sort();
     final uniq = <int>{...ranges}.toList()..sort();
     if (uniq.isEmpty) return;
+    const kMaxBatchDistances = 120;
+    if (uniq.length > kMaxBatchDistances) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('En fazla $kMaxBatchDistances farklı menzil girin (şu an ${uniq.length}).'),
+        ),
+      );
+      return;
+    }
     if (!_formKey.currentState!.validate()) return;
+    _lastBatchRangesCsv = ctrl.text.trim();
+    unawaited(
+      BallisticsRangePrefs.save(
+        primaryText: _distanceCtrl.text,
+        tableStartText: _tableStartCtrl.text,
+        tableEndText: _tableEndCtrl.text,
+        tableStepText: _tableStepCtrl.text,
+        batchCsv: _lastBatchRangesCsv,
+      ),
+    );
     final template = _collectInput();
     final rows = <(int, BallisticsSolveOutput)>[];
     for (final r in uniq) {
@@ -2475,39 +3065,54 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
   }
 
   Widget _equipmentSummaryCard(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: StreLockBalColors.fieldFill,
+    final tt = Theme.of(context).textTheme;
+    return Material(
+      color: StreLockBalColors.fieldFill,
+      elevation: 3,
+      shadowColor: Colors.black45,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.25),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'EKİPMAN ÖZETİ',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: StreLockBalColors.headerOrange,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.05,
+        onTap: () => setState(() => _tabController.index = 1),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'EKİPMAN ÖZETİ',
+                      style: tt.labelSmall?.copyWith(
+                        color: StreLockBalColors.headerOrange,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.05,
+                      ),
+                    ),
+                  ),
+                  Icon(Icons.edit_outlined, size: 18, color: StreLockBalColors.label.withValues(alpha: 0.7)),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Mühimmat / dürbün değiştirmek için dokunun — Silah sekmesi açılır.',
+                style: tt.bodySmall?.copyWith(
+                  color: StreLockBalColors.label.withValues(alpha: 0.75),
+                  fontSize: 11,
+                  height: 1.25,
                 ),
+              ),
+              const SizedBox(height: 8),
+              _eqLineStreLock('Silah', _weaponNameCtrl.text.isEmpty ? '—' : _weaponNameCtrl.text),
+              _eqLineStreLock('Dürbün', _selectedScope?.name ?? '—'),
+              _eqLineStreLock('Mühimmat', _selectedAmmo?.name ?? '—'),
+              _eqLineStreLock('Vo', '${_mvCtrl.text} m/s'),
+              _eqLineStreLock('BC', '${_bcCtrl.text} (${_bcKind.label})'),
+              _eqLineStreLock('Sıfır', '${_zeroRangeCtrl.text} m · nişangâh ${_sightHcmCtrl.text} cm'),
+            ],
           ),
-          const SizedBox(height: 8),
-          _eqLineStreLock('Silah', _weaponNameCtrl.text.isEmpty ? '—' : _weaponNameCtrl.text),
-          _eqLineStreLock('Dürbün', _selectedScope?.name ?? '—'),
-          _eqLineStreLock('Mühimmat', _selectedAmmo?.name ?? '—'),
-          _eqLineStreLock('Vo', '${_mvCtrl.text} m/s'),
-          _eqLineStreLock('BC', '${_bcCtrl.text} (${_bcKind.label})'),
-          _eqLineStreLock('Sıfır', '${_zeroRangeCtrl.text} m · nişangâh ${_sightHcmCtrl.text} cm'),
-        ],
+        ),
       ),
     );
   }
@@ -2610,10 +3215,20 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
         'Vo ${_mvCtrl.text} m/s · BC ${_bcCtrl.text} · ${_bcKind.label}',
         style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant, height: 1.35),
       ),
+      FilledButton.tonalIcon(
+        onPressed: () => unawaited(_showSavedWeaponProfilesSheet()),
+        icon: const Icon(Icons.library_books_outlined, size: 20),
+        label: const Text('Kayıtlı silahlarım'),
+        style: FilledButton.styleFrom(
+          minimumSize: const Size.fromHeight(46),
+          alignment: Alignment.centerLeft,
+        ),
+      ),
+      const SizedBox(height: 6),
       TextButton.icon(
         onPressed: () => setState(() => _tabController.index = 1),
         icon: const Icon(Icons.tune_rounded, size: 18),
-        label: const Text('Silah / dürbün / mühimmat'),
+        label: const Text('Katalog: silah · dürbün · mühimmat (Silah sekmesi)'),
       ),
       _strelokSection(context, 'MENZİL', [
         _numField(
@@ -2707,6 +3322,7 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
                   _PressureUnit.hpa => 'hPa',
                   _PressureUnit.inHg => 'inHg',
                   _PressureUnit.mmHg => 'mmHg',
+                  _PressureUnit.psi => 'psi',
                 },
               ),
             ),
@@ -2721,11 +3337,37 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
                   DropdownMenuItem(value: _PressureUnit.hpa, child: Text('hPa')),
                   DropdownMenuItem(value: _PressureUnit.inHg, child: Text('inHg')),
                   DropdownMenuItem(value: _PressureUnit.mmHg, child: Text('mmHg')),
+                  DropdownMenuItem(value: _PressureUnit.psi, child: Text('psi')),
                 ],
                 onChanged: (v) => setState(() => _pressureUnit = v ?? _pressureUnit),
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 8),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Dahili barometre (basınç)'),
+          subtitle: const Text('Destekleyen telefonlarda sensör akışı; değer hPa olarak forma yazılır.'),
+          value: _useInternalBarometer,
+          onChanged: (on) => unawaited(_setInternalBarometer(on)),
+        ),
+        const SizedBox(height: 4),
+        FilledButton.icon(
+          onPressed: () => unawaited(_applyMeteoToForm()),
+          icon: const Icon(Icons.public),
+          label: const Text('METEO (konumdan Open-Meteo)'),
+        ),
+        const SizedBox(height: 8),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Enerji: ft·lbf göster'),
+          subtitle: const Text('Kapalıyken Joule; Ek veriler ve çözüm özeti buna uyumlu.'),
+          value: _energyFtLbf,
+          onChanged: (v) {
+            setState(() => _energyFtLbf = v);
+            unawaited(_persistBallisticsDisplayPrefs());
+          },
         ),
         const SizedBox(height: 8),
         _numField(_rhCtrl, 'Göreli nem', suffix: '%'),
@@ -2772,7 +3414,11 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
               child: _numField(
                 _slopeCtrl,
                 'Eğim (Δh yoksa)',
-                suffix: _slopeUnit == _SlopeUnit.deg ? '°' : '%',
+                suffix: switch (_slopeUnit) {
+                  _SlopeUnit.deg => '°',
+                  _SlopeUnit.percent => '%',
+                  _SlopeUnit.cos => 'cos θ',
+                },
               ),
             ),
             const SizedBox(width: 8),
@@ -2785,6 +3431,7 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
                 items: const [
                   DropdownMenuItem(value: _SlopeUnit.deg, child: Text('°')),
                   DropdownMenuItem(value: _SlopeUnit.percent, child: Text('%')),
+                  DropdownMenuItem(value: _SlopeUnit.cos, child: Text('cos')),
                 ],
                 onChanged: (v) => setState(() => _slopeUnit = v ?? _slopeUnit),
               ),
@@ -3006,6 +3653,13 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
           ),
           const SizedBox(height: 8),
           OutlinedButton.icon(
+            onPressed: _result == null ? null : () => unawaited(_openExtraDataPage()),
+            icon: const Icon(Icons.info_outline),
+            label: const Text('Ek veriler'),
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
             onPressed: _rangeTableDialog,
             icon: const Icon(Icons.table_rows, size: 20),
             label: const Text('Menzil tablosu'),
@@ -3045,6 +3699,10 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
                   ),
                 ),
                 TextButton(
+                  onPressed: () => unawaited(_applyCompareRefToForm()),
+                  child: const Text('Forma yükle'),
+                ),
+                TextButton(
                   onPressed: () => unawaited(_clearProfileCompareRef()),
                   child: const Text('Sil'),
                 ),
@@ -3068,6 +3726,9 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
           clickValue: _parse(_clickValueCtrl.text),
           streLockStyle: true,
           rangeMeters: _solutionRangeM,
+          zeroElevCompClicks: WeaponProfileStore.current.value?.zeroElevCompensationClicks ?? 0,
+          zeroWindCompClicks: WeaponProfileStore.current.value?.zeroWindCompensationClicks ?? 0,
+          showEnergyFtLbf: _energyFtLbf,
         ),
         spacing,
         ReticleHoldView(
@@ -3355,6 +4016,50 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
       _numField(_grainCtrl, 'Mermi ağırlığı (spin için)', suffix: 'gr', allowEmpty: true),
       const SizedBox(height: 8),
       _numField(_calInCtrl, 'Mermi çapı', suffix: 'in', allowEmpty: true),
+      const SizedBox(height: 8),
+      _numField(_bulletLenInCtrl, 'Mermi uzunluğu (isteğe bağlı)', suffix: 'in', allowEmpty: true),
+      ]),
+      _strelokSection(context, 'NOT VE SIFIR', [
+        TextField(
+          controller: _weaponNotesCtrl,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            labelText: 'Profil notu',
+            border: OutlineInputBorder(),
+            alignLabelWithHint: true,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Çoklu sıfır / ince ayar: çözüm kartındaki tıklara eklenir (yalnız gösterim + defter).',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(height: 1.3),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(child: _numField(_zeroElevCompCtrl, 'Ek dikey tık', allowEmpty: true)),
+            const SizedBox(width: 8),
+            Expanded(child: _numField(_zeroWindCompCtrl, 'Ek yatay tık', allowEmpty: true)),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text('Sıfırlama atmosferi (bilgi, kayıt)', style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Expanded(child: _numField(_zeroAtmoTempCtrl, 'Sıfırda °C', allowEmpty: true)),
+            const SizedBox(width: 8),
+            Expanded(child: _numField(_zeroAtmoPresCtrl, 'Sıfırda hPa', allowEmpty: true)),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(child: _numField(_zeroAtmoRhCtrl, 'Sıfırda nem %', allowEmpty: true)),
+            const SizedBox(width: 8),
+            Expanded(child: _numField(_zeroPowderTCtrl, 'Sıfırda barut °C', allowEmpty: true)),
+          ],
+        ),
       ]),
       _strelokSection(context, 'BARUT SICAKLIĞI → Vo', [
       Row(
@@ -3428,6 +4133,7 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
                   (_activeBookProfileId == null && e.id == curId);
           final coriolisLine = _bookCoriolisSummaryLine(e);
           final spinLine = _bookSpinSummaryLine(e);
+          final sfLine = _millerSfLineForBook(e);
           return Padding(
             padding: const EdgeInsets.only(bottom: 6),
             child: Material(
@@ -3449,6 +4155,7 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
                           subtitle: Text(
                             '${_bookEntryCatalogSubtitle(e)}\n'
                             '${_bookScopeAmmoSummaryLine(e)}\n'
+                            '${sfLine != null ? '$sfLine\n' : ''}'
                             '${coriolisLine != null ? '$coriolisLine\n' : ''}'
                             '${spinLine != null ? '$spinLine\n' : ''}'
                             'Vo ${e.muzzleVelocityMps.toStringAsFixed(0)} m/s · '
@@ -3458,6 +4165,19 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                      ),
+                      IconButton(
+                        tooltip: 'Kopyala',
+                        icon: const Icon(Icons.copy_outlined),
+                        onPressed: () async {
+                          final n = await WeaponProfileBookStore.duplicate(e);
+                          if (!context.mounted) return;
+                          setState(() => _activeBookProfileId = n.id);
+                          _fillFormFromWeaponProfile(n);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Kopyalandı: ${n.name}')),
+                          );
+                        },
                       ),
                       IconButton(
                         tooltip: 'Sil',
@@ -3816,6 +4536,13 @@ class _BallisticsPageState extends State<BallisticsPage> with TickerProviderStat
       ),
       spacing,
       Text(
+        'Varsayılan bitiş ${BallisticsRangeUi.defaultTableEndM} m (≈3 km sınıfı); motor çok daha uzun menzili de çözer. '
+        'Çok satırda tablo yavaşlar — üst sınır ${BallisticsRangeUi.maxRangeTableRows} satır (adımı büyütün). '
+        'Ana menzil, tablo aralığı ve son toplu menzil listesi cihazda saklanır.',
+        style: tt.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+      ),
+      spacing,
+      Text(
         'Tutma önizlemesi ve hesap «Çözüm» sekmesinde, «HESAPLA» ile güncellenir.',
         style: tt.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
       ),
@@ -3971,6 +4698,9 @@ class _StrelokHeroResult extends StatelessWidget {
   final double clickValue;
   final bool streLockStyle;
   final double? rangeMeters;
+  final double zeroElevCompClicks;
+  final double zeroWindCompClicks;
+  final bool showEnergyFtLbf;
 
   const _StrelokHeroResult({
     required this.result,
@@ -3978,6 +4708,9 @@ class _StrelokHeroResult extends StatelessWidget {
     required this.clickValue,
     this.streLockStyle = false,
     this.rangeMeters,
+    this.zeroElevCompClicks = 0,
+    this.zeroWindCompClicks = 0,
+    this.showEnergyFtLbf = false,
   });
 
   @override
@@ -4143,7 +4876,7 @@ class _StrelokHeroResult extends StatelessWidget {
                   'DÜŞÜŞ (MRAD)',
                   result.dropMil.toStringAsFixed(2),
                   result.dropMoa,
-                  result.clicks,
+                  result.clicks + zeroElevCompClicks,
                 ),
                 Container(
                   width: 1,
@@ -4156,7 +4889,7 @@ class _StrelokHeroResult extends StatelessWidget {
                   'YANAL (MRAD)',
                   result.windMil.toStringAsFixed(2),
                   result.windMoa,
-                  result.windClicks,
+                  result.windClicks + zeroWindCompClicks,
                 ),
               ],
             ),
@@ -4169,15 +4902,29 @@ class _StrelokHeroResult extends StatelessWidget {
               style: tt.bodySmall?.copyWith(color: subtle),
             ),
             const Divider(height: 20),
-            detailRow('Klik (düşüş)', '${result.clicks.toStringAsFixed(1)} ($clickValue ${clickUnit.label})'),
-            detailRow('Klik (yan saf)', '${result.windClicks.toStringAsFixed(1)} ($clickValue ${clickUnit.label})'),
+            detailRow(
+              'Klik (düşüş)',
+              '${(result.clicks + zeroElevCompClicks).toStringAsFixed(1)} ($clickValue ${clickUnit.label})',
+            ),
+            detailRow(
+              'Klik (yan saf)',
+              '${(result.windClicks + zeroWindCompClicks).toStringAsFixed(1)} ($clickValue ${clickUnit.label})',
+            ),
             detailRow('Klik (öncü)', '${result.leadClicks.toStringAsFixed(1)} ($clickValue ${clickUnit.label})'),
             detailRow('Klik (yatay top.)', '${result.combinedLateralClicks.toStringAsFixed(1)} ($clickValue ${clickUnit.label})'),
             detailRow('Vo (kullanılan)', '${result.adjustedMuzzleVelocityMps.toStringAsFixed(1)} m/s'),
             detailRow('Hız (hedef)', '${result.impactVelocityMps.toStringAsFixed(0)} m/s'),
             if (result.impactEnergyJoules != null)
-              detailRow('Enerji (hedef)', '${result.impactEnergyJoules!.toStringAsFixed(0)} J'),
-            detailRow('TOF', '${result.timeOfFlightMs.toStringAsFixed(0)} ms'),
+              detailRow(
+                'Enerji (hedef)',
+                showEnergyFtLbf
+                    ? '${(result.impactEnergyJoules! * 0.737562149).toStringAsFixed(0)} ft·lbf'
+                    : '${result.impactEnergyJoules!.toStringAsFixed(0)} J',
+              ),
+            detailRow(
+              'TOF',
+              '${(result.timeOfFlightMs / 1000.0).toStringAsFixed(3)} s (${result.timeOfFlightMs.toStringAsFixed(0)} ms)',
+            ),
           ],
         ),
       ),

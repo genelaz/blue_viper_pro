@@ -12,7 +12,7 @@ import 'core/profile/weapon_profile_store.dart';
 import 'core/ui/developer_credit_shell.dart';
 import 'core/ui/field_app_theme.dart';
 import 'features/ballistics/presentation/ballistics_page.dart';
-import 'features/bluetooth/presentation/bluetooth_page.dart';
+import 'features/bluetooth/presentation/ble_hub_page.dart';
 import 'features/licensing/presentation/activation_gate.dart';
 import 'features/maps/presentation/maps_page.dart';
 import 'features/maps/presentation/startup_permissions_page.dart';
@@ -299,7 +299,7 @@ class _RootScaffoldState extends State<_RootScaffold> {
           onHarita: () => setState(() => _branchIndex = 1),
         ),
       _ShootingPanel.balistik => const BallisticsPage(),
-      _ShootingPanel.bluetooth => const BluetoothPage(),
+      _ShootingPanel.bluetooth => const BleHubPage(),
       _ShootingPanel.yedek => const BackupPage(),
     };
   }

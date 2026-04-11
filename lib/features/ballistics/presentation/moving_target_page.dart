@@ -1,14 +1,24 @@
+import 'dart:async' show unawaited;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../core/ballistics/ballistics_engine.dart';
+import '../../../core/ballistics/ballistics_export.dart';
 import 'strelock_ballistics_ui.dart';
 
-/// StreLok tarzı: hedef hızı ve yönünden çapraz bileşeni hesaplayıp forma yazdırma.
+/// StreLok tarzı: hız + açı → çapraz hız; isteğe bağlı tam çözümle önleme ve retikül önizlemesi.
 class MovingTargetLeadPage extends StatefulWidget {
-  const MovingTargetLeadPage({super.key, required this.onApplyCrossTrackMps});
+  const MovingTargetLeadPage({
+    super.key,
+    required this.onApplyCrossTrackMps,
+    this.baselineInput,
+  });
 
   final void Function(double crossTrackMps) onApplyCrossTrackMps;
+
+  /// Doluysa önleme mil/MOA ve daire önizleme hesaplanır.
+  final BallisticsSolveInput? baselineInput;
 
   @override
   State<MovingTargetLeadPage> createState() => _MovingTargetLeadPageState();
@@ -18,6 +28,7 @@ class _MovingTargetLeadPageState extends State<MovingTargetLeadPage> {
   final _speedCtrl = TextEditingController(text: '3');
   final _angleCtrl = TextEditingController(text: '90');
   bool _kmH = false;
+  bool _showMoa = false;
 
   @override
   void dispose() {
@@ -34,9 +45,29 @@ class _MovingTargetLeadPageState extends State<MovingTargetLeadPage> {
     return v * math.sin(rad);
   }
 
+  BallisticsSolveOutput? _previewOut() {
+    final b = widget.baselineInput;
+    if (b == null) return null;
+    try {
+      return BallisticsEngine.solve(b.withTargetCrossTrackMps(_crossTrackMps()));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _shareCsv() async {
+    final b = widget.baselineInput;
+    final o = _previewOut();
+    if (b == null || o == null) return;
+    final csv = multiRangeSolveToCsv([(b.distanceMeters.round(), o)]);
+    await shareCsvText(csv, filename: 'blue_viper_moving_target.csv');
+  }
+
   @override
   Widget build(BuildContext context) {
     final ct = _crossTrackMps();
+    final out = _previewOut();
+    final leadCm = out == null ? null : out.leadLateralDeltaMeters * 100.0;
     return Scaffold(
       backgroundColor: StreLockBalColors.scaffold,
       appBar: AppBar(
@@ -48,19 +79,32 @@ class _MovingTargetLeadPageState extends State<MovingTargetLeadPage> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          'Hareketli hedef öncüsü',
+          'Hareketli hedef',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: StreLockBalColors.headerOrange,
                 fontWeight: FontWeight.w800,
               ),
         ),
+        actions: [
+          if (widget.baselineInput != null)
+            TextButton(
+              onPressed: () => unawaited(_shareCsv()),
+              child: const Text('CSV'),
+            ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
+          if (widget.baselineInput != null)
+            Text(
+              'Hedef mesafesi ≈ ${widget.baselineInput!.distanceMeters.toStringAsFixed(0)} m (formdan)',
+              style: streLockLabelStyle(context).copyWith(color: StreLockBalColors.accentBlue),
+            ),
+          const SizedBox(height: 8),
           Text(
-            'Hedefin yatay düzlemdeki hızı ve çizgiye göre açısından çapraz (line-of-sight’e dik) '
-            'bileşen hesaplanır; bu değer «Ek» sekmesindeki «Hedef çapraz hız» alanına yazılır.',
+            'Hedefin yatay düzlemdeki hızı ve çizgiye göre açısından çapraz bileşen hesaplanır; '
+            '«Çapraz hızı forma yaz» ile «Ek» sekmesindeki hedef çapraz hız alanına aktarılır.',
             style: streLockLabelStyle(context).copyWith(height: 1.35),
           ),
           const SizedBox(height: 16),
@@ -100,10 +144,7 @@ class _MovingTargetLeadPageState extends State<MovingTargetLeadPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Çapraz bileşen',
-                    style: streLockSectionStyle(context),
-                  ),
+                  Text('Çapraz bileşen', style: streLockSectionStyle(context)),
                   const SizedBox(height: 6),
                   Text(
                     '${ct.toStringAsFixed(2)} m/s',
@@ -112,15 +153,55 @@ class _MovingTargetLeadPageState extends State<MovingTargetLeadPage> {
                           color: StreLockBalColors.fieldText,
                         ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Formül: v × sin(açı). İşaret: sahada hedef sağa gidiyorsa öncü yönünü forma göre doğrulayın.',
-                    style: streLockLabelStyle(context).copyWith(fontSize: 11, height: 1.3),
-                  ),
                 ],
               ),
             ),
           ),
+          if (out != null) ...[
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Önleme mesafesi (yaklaşık): ${leadCm!.toStringAsFixed(1)} cm @ ${widget.baselineInput!.distanceMeters.toStringAsFixed(0)} m',
+                    style: streLockLabelStyle(context),
+                  ),
+                ),
+                Switch(
+                  value: _showMoa,
+                  onChanged: (v) => setState(() => _showMoa = v),
+                ),
+                Text(_showMoa ? 'MOA' : 'MRAD', style: streLockLabelStyle(context)),
+              ],
+            ),
+            Text(
+              _showMoa
+                  ? 'Önleme: ${out.leadMoa.toStringAsFixed(2)} MOA'
+                  : 'Önleme: ${out.leadMil.toStringAsFixed(2)} mil · ${out.leadClicks.toStringAsFixed(1)} klik',
+              style: streLockSectionStyle(context),
+            ),
+            const SizedBox(height: 12),
+            AspectRatio(
+              aspectRatio: 1,
+              child: CustomPaint(
+                painter: _MovingReticlePainter(
+                  leadMil: out.leadMil,
+                  rangeM: widget.baselineInput!.distanceMeters,
+                ),
+                child: Center(
+                  child: Text(
+                    '∠ ${_angleCtrl.text}°',
+                    style: streLockLabelStyle(context).copyWith(color: StreLockBalColors.accentBlue),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Alt şerit: kabaca menzil ölçeği (stadiametrik değil — görsel ipucu).',
+              style: streLockLabelStyle(context).copyWith(fontSize: 11),
+            ),
+          ],
           const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: () {
@@ -134,4 +215,47 @@ class _MovingTargetLeadPageState extends State<MovingTargetLeadPage> {
       ),
     );
   }
+}
+
+class _MovingReticlePainter extends CustomPainter {
+  _MovingReticlePainter({required this.leadMil, required this.rangeM});
+
+  final double leadMil;
+  final double rangeM;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = Offset(size.width / 2, size.height / 2);
+    final r = size.width * 0.48;
+    final paint = Paint()
+      ..color = Colors.white70
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    canvas.drawCircle(c, r, paint);
+    canvas.drawLine(Offset(c.dx - r, c.dy), Offset(c.dx + r, c.dy), paint);
+    canvas.drawLine(Offset(c.dx, c.dy - r), Offset(c.dx, c.dy + r), paint);
+    final pxPerMil = r * 0.08;
+    final lx = leadMil * pxPerMil;
+    canvas.drawCircle(Offset(c.dx + lx, c.dy), r * 0.06, Paint()..color = Colors.amberAccent);
+    final stadia = Paint()
+      ..color = Colors.white38
+      ..strokeWidth = 1;
+    for (var i = -4; i <= 4; i++) {
+      final x = c.dx + i * (r / 5);
+      final h = (i.abs() + 1) * 3.0;
+      canvas.drawLine(Offset(x, c.dy + r * 0.72), Offset(x, c.dy + r * 0.72 + h), stadia);
+    }
+    final tp = TextPainter(
+      text: TextSpan(
+        text: '${rangeM.toStringAsFixed(0)} m',
+        style: const TextStyle(color: Colors.redAccent, fontSize: 11),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, Offset(c.dx - tp.width / 2, c.dy + r * 0.78));
+  }
+
+  @override
+  bool shouldRepaint(covariant _MovingReticlePainter oldDelegate) =>
+      oldDelegate.leadMil != leadMil || oldDelegate.rangeM != rangeM;
 }
